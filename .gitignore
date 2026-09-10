@@ -1,0 +1,197 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+*.egg-info/
+
+# Virtual environments
+venv/
+.venv/
+env/
+envs/
+.venv/
+virtualenv/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Project / Environment
+.env
+.env.local
+.env.*.local
+*.log
+*.pot
+*.pyc
+*.pyo
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage/
+.coverage.*
+*.cover
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Distribution / packaging
+.Python
+develop-eggs/
+downloads/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.whl
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy/
+
+# Sphinx documentation
+docs/_build/
+docs/_static/
+docs/_templates/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# celery beat schedule
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# profiling data
+.prof
+
+# Exported model artifacts
+/models/
+
+data/
+
+# Dashboard
+node_modules/
+
+# Unity
+twin/unity_project/Library/
+twin/unity_project/Temp/
+twin/unity_project/Logs/
+twin/unity_project/Assets/Generated/
+
+# Android
+capture/android/.gradle/
+capture/android/local.properties
+capture/android/**/build/
+
+
+# Local git worktrees (superpowers:using-git-worktrees)
+.worktrees/
+
+# Large model weights — never commit these, GitHub rejects files over 100 MB.
+# qwen.gguf is ~1.06 GB; fetch it separately per MOBILE-APP/setup_llama.ps1.
+# Note: *.onnx is deliberately NOT ignored — twin/Buggy.onnx is 80 KB and tracked.
+*.gguf
+*.safetensors
+
+# Android (MOBILE-APP) build output
+MOBILE-APP/.gradle/
+MOBILE-APP/local.properties
+MOBILE-APP/**/build/
+MOBILE-APP/.cxx/
+MOBILE-APP/.externalNativeBuild/
+*.iml

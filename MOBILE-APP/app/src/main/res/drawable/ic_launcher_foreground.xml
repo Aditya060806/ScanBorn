@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer glow ring — faint blue -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#1A3B82F6"
+        android:strokeWidth="1.2"
+        android:pathData="M54,54m-38,0a38,38 0,1 1,76 0a38,38 0,1 1,-76 0" />
+
+    <!-- Middle ring — slightly brighter -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#2A3B82F6"
+        android:strokeWidth="0.8"
+        android:pathData="M54,54m-32,0a32,32 0,1 1,64 0a32,32 0,1 1,-64 0" />
+
+    <!-- Core orb glow — soft blue radial -->
+    <path
+        android:fillColor="#0D3B82F6"
+        android:pathData="M54,54m-22,0a22,22 0,1 1,44 0a22,22 0,1 1,-44 0" />
+
+    <path
+        android:fillColor="#1A3B82F6"
+        android:pathData="M54,54m-16,0a16,16 0,1 1,32 0a16,16 0,1 1,-32 0" />
+
+    <!--
+        ∞ ScanBorn symbol — drawn as two overlapping loops
+        Centered at (54, 54), sized to fit nicely in the icon safe zone
+        The symbol is drawn using bezier curves for smooth, premium look
+    -->
+
+    <!-- Left loop of ∞ -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#3B82F6"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="
+            M54,54
+            C54,44 44,38 37,42
+            C30,46 30,62 37,66
+            C44,70 54,64 54,54
+        " />
+
+    <!-- Right loop of ∞ -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#3B82F6"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="
+            M54,54
+            C54,44 64,38 71,42
+            C78,46 78,62 71,66
+            C64,70 54,64 54,54
+        " />
+
+    <!-- Bright center crossing point highlight -->
+    <path
+        android:fillColor="#60A5FA"
+        android:pathData="M54,54m-2.5,0a2.5,2.5 0,1 1,5 0a2.5,2.5 0,1 1,-5 0" />
+
+    <!-- Specular highlight on left loop -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,46m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0"
+        android:fillAlpha="0.4" />
+
+    <!-- Specular highlight on right loop -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M68,46m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0"
+        android:fillAlpha="0.4" />
+
+    <!-- Small dot indicators at 3 and 9 o'clock on outer ring — tech feel -->
+    <path
+        android:fillColor="#3B82F6"
+        android:pathData="M16,54m-1.8,0a1.8,1.8 0,1 1,3.6 0a1.8,1.8 0,1 1,-3.6 0"
+        android:fillAlpha="0.7" />
+
+    <path
+        android:fillColor="#3B82F6"
+        android:pathData="M92,54m-1.8,0a1.8,1.8 0,1 1,3.6 0a1.8,1.8 0,1 1,-3.6 0"
+        android:fillAlpha="0.7" />
+
+    <!-- Top dot -->
+    <path
+        android:fillColor="#3B82F6"
+        android:pathData="M54,16m-1.8,0a1.8,1.8 0,1 1,3.6 0a1.8,1.8 0,1 1,-3.6 0"
+        android:fillAlpha="0.5" />
+
+    <!-- Bottom dot -->
+    <path
+        android:fillColor="#3B82F6"
+        android:pathData="M54,92m-1.8,0a1.8,1.8 0,1 1,3.6 0a1.8,1.8 0,1 1,-3.6 0"
+        android:fillAlpha="0.5" />
+
+</vector>

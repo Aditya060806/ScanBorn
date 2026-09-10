@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=69.0", "wheel>=0.42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scanborn"
+version = "0.1.0"
+description = "ScanBorn — end-to-end digital twin pipeline"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [{name = "ScanBorn Team"}]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[tool.setuptools.packages.find]
+where = ["sdk"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+# flake8 config lives in setup.cfg — flake8 does not read pyproject.toml.
+
+[tool.mypy]
+# ponytail: baseline, not strict. `strict = true` yields 206 errors against the
+# existing untyped stages; turn it back on per-package as each grows annotations.
+# No python_version pin — pinning 3.10 makes mypy choke on numpy's 3.12+ stubs.
+ignore_missing_imports = true
+# capture/service and semantic/service are both "service" without this; the stage
+# dirs are namespace packages resolved from the repo root.
+explicit_package_bases = true
+mypy_path = "."
+warn_redundant_casts = true
+warn_unused_ignores = true
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+# sdk/ is the scanborn package root; on the path here so the suite runs without
+# requiring an editable install first.
+pythonpath = [".", "sdk"]
+addopts = "-v --cov=sdk --cov=orchestrator --cov=capture/service --cov=semantic/service --cov=reconstruction --cov=robot/adapters --cov=sarvam/task_engine --cov=twin --cov=policy --cov=deployment --cov-report=term-missing"
+
+[tool.coverage.run]
+branch = true
