@@ -43,6 +43,8 @@ def scene_stats(objects) -> dict:
     boxes = [o["bbox3d"] for o in (objects or []) if o.get("bbox3d")]
     if not boxes:
         return {"labels": labels, "area_m2": 0.0, "ceiling_m": 0.0, "objects": 0}
+    # ponytail: assumes 6-element boxes, which is what _bbox() emits. A short box would
+    # IndexError here rather than being skipped.
 
     floors = [o["bbox3d"] for o in objects
               if str(o.get("label", "")).lower() == "floor" and o.get("bbox3d")]
@@ -50,10 +52,16 @@ def scene_stats(objects) -> dict:
     width = max(b[3] for b in extent) - min(b[0] for b in extent)
     depth = max(b[4] for b in extent) - min(b[1] for b in extent)
 
+    # float() before round() on purpose. round() preserves its argument's type, so an int
+    # bbox — which is exactly what a JSON round-trip produces from "0" — yields int 50 and
+    # the summary reads "50 m2", while a float bbox from the segmenter yields 50.0 and reads
+    # "50.0 m2". The same room must summarise identically either way, because this text is
+    # the model's whole input and the distillation examples are matched against it.
     return {
         "labels": labels,
-        "area_m2": round(max(0.0, width) * max(0.0, depth), 2),
-        "ceiling_m": round(max(b[5] for b in boxes) - min(b[2] for b in boxes), 2),
+        "area_m2": round(float(max(0.0, width) * max(0.0, depth)), 2),
+        "ceiling_m": round(
+            float(max(b[5] for b in boxes) - min(b[2] for b in boxes)), 2),
         # Structure is not furniture; counting it would call every room crowded.
         "objects": sum(n for label, n in labels.items()
                        if label not in ("floor", "ceiling", "wall")),

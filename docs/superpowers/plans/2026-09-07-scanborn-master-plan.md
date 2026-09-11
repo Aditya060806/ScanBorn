@@ -10,10 +10,19 @@ grammar-constrained decoding, and a laptop compute tier — on the hardware actu
 available, with nothing claimed that has not been measured.
 
 **Progress (2026-09-07).** Phase 0 done except 0.1 (prior-work rule — needs an answer from
-the organisers, not a commit). Phase 1.1, 1.2 and 1.3 done: grammar reaches the model,
-prefill and decode are timed separately and surfaced in Settings, threads are chosen at
-runtime, and the three-minute first-token watchdog is gone. Phase 1.4 (on-device planner and
-profiler) is next. **204 tests, flake8 clean, mypy clean across 68 files.**
+the organisers, not a commit). **Phase 1.1 – 1.4 done:** grammar reaches the model, prefill
+and decode are timed separately and surfaced in Settings, threads are chosen at runtime, the
+three-minute first-token watchdog is gone, and the phone now has its own task planner and
+environment profiler under grammar-constrained decoding. Remaining in Phase 1: the rest of
+1.5 (TTS, listening feedback, partial results, voice's own entry path).
+
+**223 tests, flake8 clean, mypy clean across 68 files.**
+
+Duplicated-constant drift between the phone and the server is guarded by two text-diffing
+test files that need no Gradle or emulator: `tests/test_grammar_parity.py` (the three shared
+lists, and that Python's rules are reproducible from the Kotlin ones) and
+`tests/test_planner_parity.py` (both system prompts reconstructed byte-identically from the
+Kotlin literals, profile bounds, the `generic` profile, and the scene-summary wording).
 
 The one thing still unmeasured is the number everything else waits on: real prefill and
 decode tok/s on the S24 FE. The instrumentation to read it now exists; it needs a device.
@@ -147,11 +156,11 @@ Only the bridge is missing.
 
 ### 1.4 On-device planner and profiler
 
-- [ ] **New** `.../ai/planner/LocalTaskPlanner.kt` — sentence → task graph via Qwen under
+- [x] **New** `.../ai/planner/LocalTaskPlanner.kt` — sentence → task graph via Qwen under
       `task_graph_grammar`. Mirrors `sarvam/task_engine/` semantics.
-- [ ] **New** `.../ai/planner/LocalProfiler.kt` — scene summary → profile JSON under
+- [x] **New** `.../ai/planner/LocalProfiler.kt` — scene summary → profile JSON under
       `environment_profile_grammar`. Mirrors `ModelProfiler`, same fallback discipline.
-- [ ] Reuse `sarvam/task_engine/profile_planner.py:summarize()` wording verbatim so
+- [x] Reuse `sarvam/task_engine/profile_planner.py:summarize()` wording verbatim so
       distilled examples transfer.
       *Accept:* phone produces the same graph as the Python path for the 10 canonical
       instructions in `tests/test_task_engine.py`.
