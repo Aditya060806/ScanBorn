@@ -34,8 +34,11 @@ line_length = 100
 # flake8 config lives in setup.cfg — flake8 does not read pyproject.toml.
 
 [tool.mypy]
-# ponytail: baseline, not strict. `strict = true` yields 206 errors against the
-# existing untyped stages; turn it back on per-package as each grows annotations.
+# ponytail: baseline, not strict. Measured 2026-09-07: this config is clean (0 errors
+# across 68 files), while `strict = true` reports 595 — 319 no-untyped-def, 138
+# no-untyped-call, 128 type-arg. Those are missing annotations, not defects, so
+# strictness is earned per-package as each stage grows types rather than switched on
+# globally. The pre-commit hook reads this block; do not re-add --strict there.
 # No python_version pin — pinning 3.10 makes mypy choke on numpy's 3.12+ stubs.
 ignore_missing_imports = true
 # capture/service and semantic/service are both "service" without this; the stage

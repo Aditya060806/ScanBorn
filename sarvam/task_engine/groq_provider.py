@@ -97,7 +97,7 @@ class GroqPlanner(TaskPlanner):
             return TaskGraph()
 
         legal = set(task_graph_targets(objects)) | {""}
-        nodes = []
+        nodes: list = []
         for raw in (doc.get("nodes") or []):
             if not isinstance(raw, dict):
                 continue

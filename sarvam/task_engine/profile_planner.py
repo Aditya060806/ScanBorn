@@ -129,7 +129,7 @@ class ModelProfiler(ProfilePlanner):
     under the grammar from schemas.environment_profile_grammar().
     """
 
-    def __init__(self, chat, fallback: ProfilePlanner = None):
+    def __init__(self, chat, fallback: ProfilePlanner | None = None):
         self.chat = chat
         self.fallback = fallback or HeuristicProfiler()
 

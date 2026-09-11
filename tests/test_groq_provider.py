@@ -19,7 +19,7 @@ class FakeResponse:
 
 def capture(monkeypatch, content='{"nodes": []}'):
     """Swap httpx.post for a recorder; returns the dict the call was made with."""
-    seen = {}
+    seen: dict = {}
 
     def fake_post(url, headers=None, json=None, timeout=None):
         seen.update(url=url, headers=headers, body=json, timeout=timeout)

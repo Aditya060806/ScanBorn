@@ -13,6 +13,10 @@ mypy>=1.8.0
 bandit>=1.7.7
 pre-commit>=3.6.0
 
+# Type stubs. mypy reports `import-untyped` for PyYAML without these, and
+# ignore_missing_imports does not suppress that code — only import-not-found.
+types-PyYAML>=6.0.12
+
 # Development tools
 ipython>=8.20.0
 ipdb>=0.13.13

@@ -45,7 +45,7 @@ def free_cells(navmesh: dict) -> list:
     ]
 
 
-def inflate(navmesh: dict, radius: float = None) -> dict:
+def inflate(navmesh: dict, radius: float | None = None) -> dict:
     """Grow every obstacle by the robot's radius — Nav2's costmap inflation.
 
     Planning on the raw grid produces paths that graze obstacles, and a controller

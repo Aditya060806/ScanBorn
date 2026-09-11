@@ -2,7 +2,12 @@
 
 # Every source tree we lint/format/typecheck. CI reuses these targets, so this
 # list is the single place to add a new stage package.
+# NOTE: noxfile.py carries the same list. Change both together.
 PKGS = sdk/ orchestrator/ capture/ reconstruction/ semantic/ robot/ sarvam/ twin/ policy/ deployment/ tests/
+
+# On Windows there is no `make`, and `clean` below needs rm/find. Use nox instead —
+# same tasks, same PKGS, runs in the current interpreter:
+#     nox -s lint | format | format_check | tests | security
 
 help:
 	@echo "Usage:"
@@ -13,6 +18,8 @@ help:
 	@echo "  make test          Run pytest"
 	@echo "  make coverage      Run pytest with coverage"
 	@echo "  make clean         Remove build artifacts"
+	@echo ""
+	@echo "  Windows: use 'nox -s lint' / 'nox -s tests' (see noxfile.py)"
 
 install:
 	pip install -e .
