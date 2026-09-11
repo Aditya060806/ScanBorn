@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.scanborn.ai.ai.state.AIInferenceState
+import com.scanborn.ai.ai.state.InferenceStats
 import com.scanborn.ai.ui.components.GradientBackground
 import com.scanborn.ai.ui.components.GlassCard
 import com.scanborn.ai.ui.theme.*
@@ -35,6 +36,15 @@ fun SettingsScreen(isDarkTheme: Boolean, bottomPadding: Dp, onToggleTheme: () ->
     val aiState by chatViewModel.aiState.collectAsState()
     val scroll = rememberScrollState()
     val context = LocalContext.current
+
+    // Stats live on the Responding state, so they vanish the moment generation ends. Hold
+    // the last measured set so the panel keeps reporting real numbers between runs rather
+    // than snapping back to "not measured yet".
+    var lastStats by remember { mutableStateOf(InferenceStats()) }
+    LaunchedEffect(aiState) {
+        (aiState as? AIInferenceState.Responding)?.stats
+            ?.let { if (it.measured) lastStats = it }
+    }
 
     val micGranted = remember {
         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
@@ -116,9 +126,36 @@ fun SettingsScreen(isDarkTheme: Boolean, bottomPadding: Dp, onToggleTheme: () ->
                 }
                 SettingsRow(Icons.Default.Memory, "Local Model", modelLabel, modelColor, isDarkTheme)
                 SettingsDivider(isDarkTheme)
-                SettingsRow(Icons.Default.Speed, "Response Mode", "Balanced", Blue500, isDarkTheme)
+
+                // Measured, not claimed. The rows here used to read "Response Mode:
+                // Balanced" and "Language: English", neither of which was wired to
+                // anything — so the one screen that looks like a diagnostics panel showed
+                // no diagnostics. Throughput is the number that decides whether this
+                // device needs a bigger machine in the loop, so it belongs on screen
+                // rather than only in logcat. lastStats is captured above via
+                // LaunchedEffect — never assigned during composition.
+                val cores = remember { Runtime.getRuntime().availableProcessors() }
+
+                if (lastStats.measured) {
+                    SettingsRow(Icons.Default.Speed, "Prefill",
+                        "%.0f tok/s · %d tok in %d ms".format(
+                            lastStats.prefillTokensPerSec, lastStats.promptTokens,
+                            lastStats.prefillMs),
+                        Blue500, isDarkTheme)
+                    SettingsDivider(isDarkTheme)
+                    SettingsRow(Icons.Default.Bolt, "Decode",
+                        "%.1f tok/s · %d tok in %d ms".format(
+                            lastStats.decodeTokensPerSec, lastStats.genTokens,
+                            lastStats.decodeMs),
+                        Blue500, isDarkTheme)
+                } else {
+                    // Never show zeros — an unmeasured engine must not read as a slow one.
+                    SettingsRow(Icons.Default.Speed, "Throughput", "not measured yet",
+                        if (isDarkTheme) TextSecondary else TextSecondaryLight, isDarkTheme)
+                }
                 SettingsDivider(isDarkTheme)
-                SettingsRow(Icons.Default.Language, "Language", "English", Blue500, isDarkTheme)
+                SettingsRow(Icons.Default.DeveloperBoard, "Compute",
+                    "CPU · $cores cores", Blue500, isDarkTheme)
             }
 
             Spacer(Modifier.height(12.dp))

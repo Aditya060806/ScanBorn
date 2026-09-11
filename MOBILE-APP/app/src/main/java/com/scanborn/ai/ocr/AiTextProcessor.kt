@@ -33,11 +33,29 @@ import kotlinx.coroutines.launch
 object AiTextProcessor {
 
     private const val TAG = "AiTextProcessor"
-    // First-token watchdog: fires only if zero tokens arrive before deadline.
+
+    // First-token watchdog: fires only if zero tokens arrive before the deadline.
     // Cancelled immediately on first token — never affects mid-stream generation.
-    private const val FIRST_TOKEN_TIMEOUT_MS   = 180_000L  // 3 minutes
-    // Total-generation watchdog: saves partial output if generation takes too long.
-    private const val TOTAL_GENERATION_TIMEOUT_MS = 300_000L  // 5 minutes
+    //
+    // Was 180_000 (three minutes). Nobody picks that number without having watched prefill
+    // take that long, and on either target device it should not: MAX_INPUT_CHARS caps the
+    // prompt near 200 tokens, which is seconds of prefill even on a CPU-only Exynos. The
+    // old value was almost certainly masking the hardcoded 4-thread setting that
+    // LlamaEngine.inferenceThreads() now replaces.
+    //
+    // 60s is still a large margin, kept deliberately until there are real numbers: cold
+    // start pays for the first mmap and a cold page cache. LlamaEngine's onStats callback
+    // reports measured prefill ms — tighten this to a few multiples of the p99 once that
+    // has been read off a device, and do the same for MAX_INPUT_CHARS.
+    private const val FIRST_TOKEN_TIMEOUT_MS = 60_000L
+
+    // Total-generation watchdog: saves partial output if generation runs long.
+    // MAX_TOKENS is 256, so even at 2 tok/s a full reply lands inside 130s.
+    private const val TOTAL_GENERATION_TIMEOUT_MS = 180_000L
+
+    // ponytail: 800 chars was chosen against the slow path above, not against a measured
+    // limit. A scene summary fits comfortably; few-shot examples will not. Revisit with
+    // N_CTX now at 4096.
     const val MAX_INPUT_CHARS = 800
 
     /**

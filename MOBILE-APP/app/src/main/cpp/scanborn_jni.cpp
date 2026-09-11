@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <atomic>
+#include <chrono>
 #include <pthread.h>
 
 #include "llama.h"
@@ -49,7 +50,14 @@ struct GenContext {
     jmethodID   onToken;
     jmethodID   onComplete;
     jmethodID   onError;
+    jmethodID   onStats;
 };
+
+// Prefill and decode are different bottlenecks — prefill is compute-bound over the whole
+// prompt, decode is memory-bandwidth-bound one token at a time — so a single
+// tokens-per-second figure hides which one is actually slow. Reporting them separately is
+// what tells you whether a long wait is the prompt or the reply.
+static const int STATS_EVERY_N_TOKENS = 8;
 
 static void run_generation(JNIEnv* env, GenContext* ctx) {
     // ── Reset stop flag FIRST, before any early-return path ──────────────────
@@ -101,6 +109,9 @@ static void run_generation(JNIEnv* env, GenContext* ctx) {
     // Fix: lock per-chunk so unloadModel() can acquire the lock between chunks.
     llama_memory_clear(llama_get_memory(ctx_), true);
 
+    using clock = std::chrono::steady_clock;
+    const auto t_prefill_start = clock::now();
+
     for (int i = 0; i < n; i += 512) {
         if (g_stop.load()) return;
 
@@ -117,6 +128,20 @@ static void run_generation(JNIEnv* env, GenContext* ctx) {
             return;
         }
     }
+
+    const long prefill_ms = (long)std::chrono::duration_cast<std::chrono::milliseconds>(
+            clock::now() - t_prefill_start).count();
+    LOGI("Prefill: %d tokens in %ld ms", n, prefill_ms);
+
+    // Emit once here, before the first token. This is the number that matters most on a
+    // CPU-only phone: time-to-first-token is prefill, and it is what a user experiences as
+    // the model "not responding".
+    auto fireStats = [&](int genTokens, long decodeMs) {
+        env->CallVoidMethod(ctx->callback, ctx->onStats,
+                            (jint)n, (jint)genTokens, (jlong)prefill_ms, (jlong)decodeMs);
+        if (env->ExceptionCheck()) env->ExceptionClear();
+    };
+    fireStats(0, 0);
 
     // ── Sampler chain ─────────────────────────────────────────────────────────
     auto sparams        = llama_sampler_chain_default_params();
@@ -151,6 +176,12 @@ static void run_generation(JNIEnv* env, GenContext* ctx) {
     }
 
     bool stopped_by_flag = false;
+    const auto t_decode_start = clock::now();
+    int generated = 0;
+    auto decode_ms = [&]() -> long {
+        return (long)std::chrono::duration_cast<std::chrono::milliseconds>(
+                clock::now() - t_decode_start).count();
+    };
 
     // ── Token generation loop ─────────────────────────────────────────────────
     for (int i = 0; i < ctx->maxTokens; i++) {
@@ -177,6 +208,12 @@ static void run_generation(JNIEnv* env, GenContext* ctx) {
         env->DeleteLocalRef(jtok);
         if (env->ExceptionCheck()) { env->ExceptionClear(); break; }
 
+        // Throttled: one JNI call per token would be cheap next to inference, but it would
+        // push a new value onto the state flow for every token and recompose the UI at
+        // decode rate.
+        generated++;
+        if (generated % STATS_EVERY_N_TOKENS == 0) fireStats(generated, decode_ms());
+
         pthread_mutex_lock(&g_state_mutex);
         live_ctx = g_ctx;
         pthread_mutex_unlock(&g_state_mutex);
@@ -187,6 +224,13 @@ static void run_generation(JNIEnv* env, GenContext* ctx) {
     }
 
     llama_sampler_free(smpl);
+
+    const long total_decode_ms = decode_ms();
+    fireStats(generated, total_decode_ms);
+    LOGI("Decode: %d tokens in %ld ms (%.1f tok/s); prefill %d tokens in %ld ms (%.1f tok/s)",
+         generated, total_decode_ms,
+         total_decode_ms > 0 ? generated * 1000.0 / total_decode_ms : 0.0,
+         n, prefill_ms, prefill_ms > 0 ? n * 1000.0 / prefill_ms : 0.0);
 
     // Bug fix: previously onComplete() was called even when stopped via g_stop.
     // This caused ChatViewModel's onCompletion handler to replace valid partial
@@ -295,6 +339,7 @@ Java_com_scanborn_ai_ai_runtime_LlamaJniBridge_generate(
     jmethodID onToken    = env->GetMethodID(cls, "onToken",    "(Ljava/lang/String;)V");
     jmethodID onComplete = env->GetMethodID(cls, "onComplete", "()V");
     jmethodID onError    = env->GetMethodID(cls, "onError",    "(Ljava/lang/String;)V");
+    jmethodID onStats    = env->GetMethodID(cls, "onStats",    "(IIJJ)V");
 
     GenContext* ctx = new GenContext();
     ctx->prompt     = jstr(env, prompt);
@@ -304,6 +349,7 @@ Java_com_scanborn_ai_ai_runtime_LlamaJniBridge_generate(
     ctx->onToken    = onToken;
     ctx->onComplete = onComplete;
     ctx->onError    = onError;
+    ctx->onStats    = onStats;
 
     pthread_t      thread;
     pthread_attr_t attr;

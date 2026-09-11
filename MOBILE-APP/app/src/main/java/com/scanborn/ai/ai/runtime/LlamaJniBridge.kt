@@ -77,4 +77,16 @@ interface LlamaCallback {
 
     /** Called if an error occurs during generation */
     fun onError(message: String)
+
+    /**
+     * Measured throughput. Fired once when prefill completes (before the first token, so
+     * time-to-first-token is observable), then throttled during decode, then once at the
+     * end.
+     *
+     * JNI signature is `(IIJJ)V` — changing these parameter types means changing the
+     * `GetMethodID` lookup in scanborn_jni.cpp to match, or the call silently no-ops.
+     *
+     * Defaulted so existing anonymous implementations do not have to care.
+     */
+    fun onStats(promptTokens: Int, genTokens: Int, prefillMs: Long, decodeMs: Long) {}
 }
