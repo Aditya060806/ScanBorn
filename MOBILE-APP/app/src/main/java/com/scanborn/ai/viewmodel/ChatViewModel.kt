@@ -105,23 +105,57 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         generateReply(text)
     }
 
+    /**
+     * Start a fresh conversation from a tapped suggestion chip.
+     *
+     * Replacing the list is correct here — the chips only show on an empty chat, so there is
+     * nothing to lose. It is NOT correct for voice; see [sendVoiceInput].
+     */
     fun startFromSuggestion(prompt: String) {
         _showSuggestions.value = false
         val welcome = ChatMessage(nextId(), "Hello! I'm ScanBorn. How can I help you today?", isUser = false)
         val userMsg = ChatMessage(nextId(), prompt, isUser = true)
         _messages.value = listOf(welcome, userMsg)
-        if (aiState.value is AIInferenceState.Loading ||
-            aiState.value is AIInferenceState.Error) {
-            val errMsg = ChatMessage(nextId(),
-                if (aiState.value is AIInferenceState.Loading)
-                    "Model is still loading, please wait a moment and try again."
-                else
-                    "AI engine error. Please restart the app.",
-                isUser = false)
-            _messages.value = _messages.value + errMsg
-            return
-        }
+        if (rejectedWhileUnready()) return
         generateReply(prompt)
+    }
+
+    /**
+     * Handle a spoken instruction.
+     *
+     * Voice used to route through [startFromSuggestion], which replaces the entire message
+     * list — so every utterance silently deleted the conversation so far. Speaking is a normal
+     * turn, not a new session, so this appends exactly like [sendMessage] does.
+     */
+    fun sendVoiceInput(text: String) {
+        val spoken = text.trim()
+        if (spoken.isBlank()) return
+        // Ignore an utterance that lands mid-generation rather than interleaving two replies.
+        if (aiState.value is AIInferenceState.Thinking ||
+            aiState.value is AIInferenceState.Responding) return
+
+        _showSuggestions.value = false
+        _messages.value = _messages.value + ChatMessage(nextId(), spoken, isUser = true)
+        if (rejectedWhileUnready()) return
+        generateReply(spoken)
+    }
+
+    /**
+     * Append the "not ready" reply when the engine cannot answer, and report whether it did.
+     *
+     * Shared by every entry point so a loading model reads the same whether the user typed,
+     * tapped or spoke.
+     */
+    private fun rejectedWhileUnready(): Boolean {
+        val state = aiState.value
+        if (state !is AIInferenceState.Loading && state !is AIInferenceState.Error) return false
+        _messages.value = _messages.value + ChatMessage(nextId(),
+            if (state is AIInferenceState.Loading)
+                "Model is still loading, please wait a moment and try again."
+            else
+                "AI engine error. Please restart the app.",
+            isUser = false)
+        return true
     }
 
     fun stopGeneration() {

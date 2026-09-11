@@ -1,10 +1,7 @@
 package com.scanborn.ai.ui.navigation
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.tween
@@ -26,10 +23,12 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
+import com.scanborn.ai.ai.state.AIInferenceState
 import com.scanborn.ai.ui.components.toOrbState
 import com.scanborn.ai.ui.screens.*
 import com.scanborn.ai.viewmodel.ChatViewModel
 import com.scanborn.ai.viewmodel.LibraryViewModel
+import com.scanborn.ai.viewmodel.VoiceViewModel
 
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
     object Dashboard : Screen("dashboard", "Home",     Icons.Default.Home)
@@ -54,50 +53,45 @@ fun AppNavigation(isDarkTheme: Boolean, onToggleTheme: () -> Unit) {
     val aiState by chatViewModel.aiState.collectAsState()
     val orbState = aiState.toOrbState()
 
-    // ── Mic permission + SpeechRecognizer ─────────────────────────────────────
+    // ── Voice ─────────────────────────────────────────────────────────────────
+    // The recogniser used to be built and torn down here, inside a composable, with its
+    // listener state going nowhere. It now lives in VoiceViewModel, which is a lifetime that
+    // actually matches a microphone and survives configuration changes.
+    val voiceViewModel: VoiceViewModel = viewModel()
+    val voiceState by voiceViewModel.state.collectAsState()
+
     val micPermLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { /* permission result handled silently; VoiceScreen reacts to aiState */ }
-
-    val speechRecognizer = remember {
-        if (SpeechRecognizer.isRecognitionAvailable(context))
-            SpeechRecognizer.createSpeechRecognizer(context)
-        else null
-    }
-    DisposableEffect(Unit) { onDispose { speechRecognizer?.destroy() } }
+    ) { granted -> if (granted) voiceViewModel.startListening() }
 
     val startListening: () -> Unit = {
         val hasMic = ContextCompat.checkSelfPermission(
             context, Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
-        if (!hasMic) {
-            micPermLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        } else {
-            speechRecognizer?.let { sr ->
-                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                }
-                sr.setRecognitionListener(object : android.speech.RecognitionListener {
-                    override fun onReadyForSpeech(p: android.os.Bundle?) {}
-                    override fun onBeginningOfSpeech() {}
-                    override fun onRmsChanged(v: Float) {}
-                    override fun onBufferReceived(b: ByteArray?) {}
-                    override fun onEndOfSpeech() {}
-                    override fun onError(code: Int) {}
-                    override fun onResults(results: android.os.Bundle?) {
-                        val text = results
-                            ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                            ?.firstOrNull() ?: return
-                        chatViewModel.startFromSuggestion(text)
-                    }
-                    override fun onPartialResults(partial: android.os.Bundle?) {}
-                    override fun onEvent(type: Int, params: android.os.Bundle?) {}
-                })
-                sr.startListening(intent)
-            }
+        // Start listening as soon as permission is granted, rather than making the user tap
+        // the mic a second time after the dialog.
+        if (hasMic) voiceViewModel.startListening()
+        else micPermLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
+
+    // A completed utterance is a normal chat turn. It used to call startFromSuggestion,
+    // which replaces the message list — so speaking silently deleted the conversation.
+    LaunchedEffect(Unit) {
+        voiceViewModel.transcripts.collect { chatViewModel.sendVoiceInput(it) }
+    }
+
+    // Read the reply aloud once generation finishes. Keyed on aiState so it fires on the
+    // Responding -> Idle edge, and guarded on the last message being the assistant's so a
+    // rejection notice or a cleared chat is not spoken.
+    var wasResponding by remember { mutableStateOf(false) }
+    LaunchedEffect(aiState) {
+        val responding = aiState is AIInferenceState.Responding
+        if (wasResponding && !responding) {
+            chatViewModel.messages.value.lastOrNull()
+                ?.takeIf { !it.isUser && it.text.isNotBlank() }
+                ?.let { voiceViewModel.speak(it.text) }
         }
+        wasResponding = responding
     }
 
     Scaffold(
@@ -220,13 +214,6 @@ fun AppNavigation(isDarkTheme: Boolean, onToggleTheme: () -> Unit) {
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
-            composable("circle_learn") {
-                CircleLearnEntryScreen(
-                    isDarkTheme    = isDarkTheme,
-                    bottomPadding  = innerPadding.calculateBottomPadding(),
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     isDarkTheme   = isDarkTheme,
@@ -247,12 +234,18 @@ fun AppNavigation(isDarkTheme: Boolean, onToggleTheme: () -> Unit) {
                     isDarkTheme    = isDarkTheme,
                     orbState       = orbState,
                     aiState        = aiState,
+                    voice          = voiceState,
                     onSetListening = startListening,
                     onSetIdle      = {
-                        speechRecognizer?.stopListening()
+                        // Stop everything the button could plausibly mean: the mic, the
+                        // speaker, and the generation in between.
+                        voiceViewModel.stopAll()
                         chatViewModel.stopGeneration()
                     },
-                    onDismiss      = { navController.popBackStack() }
+                    onDismiss      = {
+                        voiceViewModel.stopAll()
+                        navController.popBackStack()
+                    }
                 )
             }
         }

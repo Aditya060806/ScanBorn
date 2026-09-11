@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.scanborn.ai.ai.state.AIInferenceState
+import com.scanborn.ai.ai.voice.SpeechController
 import com.scanborn.ai.ui.components.*
 import com.scanborn.ai.ui.theme.*
 
@@ -28,12 +29,23 @@ fun VoiceScreen(
     isDarkTheme: Boolean,
     orbState: OrbState,
     aiState: AIInferenceState,
+    voice: SpeechController.VoiceUiState,
     onSetListening: () -> Unit,
     onSetIdle: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val isListening = aiState is AIInferenceState.Thinking || aiState is AIInferenceState.Responding
-    val transcript  = if (aiState is AIInferenceState.Responding) aiState.partialText else ""
+    // Recognition state, not inference state. These were conflated: isListening was derived
+    // from aiState, so the mic read as idle for the whole window between opening it and the
+    // model starting to reply — exactly when a user needs to see they are being heard.
+    val isListening = voice.listening
+
+    // The live guess while speaking, the final transcript once done, and the model's reply
+    // while it streams. All three belong in the same card, in that order of precedence.
+    val transcript = when {
+        voice.transcript.isNotEmpty() -> voice.transcript
+        aiState is AIInferenceState.Responding -> aiState.partialText
+        else -> ""
+    }
 
     GradientBackground(darkTheme = isDarkTheme, modifier = Modifier.fillMaxSize()) {
         Column(
@@ -64,7 +76,10 @@ fun VoiceScreen(
 
                 Text("∞", fontSize = 22.sp, color = Blue500, fontWeight = FontWeight.Light)
 
-                AnimatedVisibility(visible = aiState is AIInferenceState.Responding) {
+                // Driven by TTS now. This read "Speaking" whenever the model was generating
+                // text, while the app had no text-to-speech at all — a label for a feature
+                // that did not exist.
+                AnimatedVisibility(visible = voice.speaking) {
                     Row(verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Speaking", style = MaterialTheme.typography.labelSmall,
@@ -82,25 +97,30 @@ fun VoiceScreen(
             Spacer(Modifier.height(24.dp))
 
             // ── Status label ──────────────────────────────────────────
+            // Recognition status outranks inference status. While the mic is open the model
+            // is idle, so keying only on aiState left this saying "Tap mic to speak" over a
+            // live microphone.
+            val status: Pair<String, Color> = when {
+                voice.error != null -> voice.error to ErrorRed
+                voice.listening -> "Listening…" to Blue500
+                voice.speaking -> "Speaking" to Blue500
+                aiState is AIInferenceState.Loading -> "Loading model…" to Blue500
+                aiState is AIInferenceState.Thinking -> "Processing…" to Blue500
+                aiState is AIInferenceState.Responding -> "ScanBorn is responding" to Blue500
+                aiState is AIInferenceState.Error -> "Something went wrong" to ErrorRed
+                else -> "Tap mic to speak" to
+                    (if (isDarkTheme) TextSecondary else TextSecondaryLight)
+            }
+
             AnimatedContent(
-                targetState = aiState,
+                targetState = status,
                 transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) },
                 label = "voiceStatus"
-            ) { state ->
+            ) { (label, tint) ->
                 Text(
-                    text = when (state) {
-                        is AIInferenceState.Idle      -> "Tap mic to speak"
-                        is AIInferenceState.Loading   -> "Loading model..."
-                        is AIInferenceState.Thinking  -> "Processing..."
-                        is AIInferenceState.Responding -> "ScanBorn is responding"
-                        is AIInferenceState.Error     -> "Something went wrong"
-                    },
+                    text = label,
                     style = MaterialTheme.typography.titleMedium,
-                    color = when (state) {
-                        is AIInferenceState.Error -> ErrorRed
-                        is AIInferenceState.Idle  -> if (isDarkTheme) TextSecondary else TextSecondaryLight
-                        else -> Blue500
-                    },
+                    color = tint,
                     textAlign = TextAlign.Center,
                     fontWeight = FontWeight.Medium
                 )

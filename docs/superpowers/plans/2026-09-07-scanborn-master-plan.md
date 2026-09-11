@@ -10,13 +10,21 @@ grammar-constrained decoding, and a laptop compute tier — on the hardware actu
 available, with nothing claimed that has not been measured.
 
 **Progress (2026-09-07).** Phase 0 done except 0.1 (prior-work rule — needs an answer from
-the organisers, not a commit). **Phase 1.1 – 1.4 done:** grammar reaches the model, prefill
-and decode are timed separately and surfaced in Settings, threads are chosen at runtime, the
-three-minute first-token watchdog is gone, and the phone now has its own task planner and
-environment profiler under grammar-constrained decoding. Remaining in Phase 1: the rest of
-1.5 (TTS, listening feedback, partial results, voice's own entry path).
+the organisers, not a commit). **Phase 1 complete.** Grammar reaches the model, prefill and
+decode are timed separately and surfaced in Settings, threads are chosen at runtime, the
+three-minute first-token watchdog is gone, the phone has its own task planner and environment
+profiler under grammar-constrained decoding, and voice works end to end: real listening state,
+live partial transcripts, TTS, and its own entry path so speaking no longer wipes the chat.
+Also took 2.7 (duplicate `circle_learn` route) since it was in the same file.
 
 **223 tests, flake8 clean, mypy clean across 68 files.**
+
+> **Caveat on the Kotlin.** There is no Android SDK on the development machine
+> (`ANDROID_HOME` unset, no `local.properties`), so **none of the Kotlin in Phases 1.1–1.5 has
+> been compiled.** It has been checked statically — imports against usage, package/directory
+> agreement, JNI signature against `GetMethodID`, and the parity tests — but the first real
+> `./gradlew assembleDebug` should be expected to surface something. Do that before relying on
+> any of it.
 
 Duplicated-constant drift between the phone and the server is guarded by two text-diffing
 test files that need no Gradle or emulator: `tests/test_grammar_parity.py` (the three shared
@@ -170,14 +178,14 @@ Only the bridge is missing.
 - [x] `.../ui/screens/VoiceScreen.kt:35` reads `aiState.partialText`, which
       `LlamaEngine.kt:73` constructs as `Responding()` with **no argument** — so the
       transcript card can never render. Populate it (1.1 already touches this state).
-- [ ] Add listening feedback: `isListening` is derived from `aiState`, but
+- [x] Add listening feedback: `isListening` is derived from `aiState`, but
       `sr.startListening()` never touches `aiState`, so the mic looks dead until generation
       starts. Wire `onReadyForSpeech` / `onEndOfSpeech`.
-- [ ] Implement `onPartialResults` — `EXTRA_PARTIAL_RESULTS` is requested and the override
+- [x] Implement `onPartialResults` — `EXTRA_PARTIAL_RESULTS` is requested and the override
       is empty.
-- [ ] Voice currently routes through `chatViewModel.startFromSuggestion()`, which
+- [x] Voice currently routes through `chatViewModel.startFromSuggestion()`, which
       **replaces the whole message list** and wipes history. Give voice its own entry path.
-- [ ] Add `TextToSpeech`. There is none anywhere; `VoiceScreen`'s "Speaking" indicator is
+- [x] Add `TextToSpeech`. There is none anywhere; `VoiceScreen`'s "Speaking" indicator is
       decorative.
       *Accept:* speak Hindi → transcript visible while speaking → task graph → spoken reply.
 
@@ -204,7 +212,7 @@ Only the bridge is missing.
       deliberate sweeping. Verify early; it is the largest single unknown in this plan.
 - [ ] **2.6** Wire into `ui/navigation/AppNavigation.kt` and `ui/screens/ToolsScreen.kt`
       (the dead `onClick = {}` placeholder at line 140 becomes "Scan a space").
-- [ ] **2.7** Fix `AppNavigation.kt` — `circle_learn` is **registered twice** (identical
+- [x] **2.7** Fix `AppNavigation.kt` — `circle_learn` is **registered twice** (identical
       bodies); the second overwrites the first. Remove it.
 - [ ] **2.8** `MainActivity.kt` ignores `intent` entirely, so Circle Learn's
       `onOpenInApp(route)` extra is silently dropped. Read it.
