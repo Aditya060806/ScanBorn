@@ -45,13 +45,20 @@ def free_cells(navmesh: dict) -> list:
     ]
 
 
-def inflate(navmesh: dict, radius: float = ROBOT_RADIUS) -> dict:
+def inflate(navmesh: dict, radius: float = None) -> dict:
     """Grow every obstacle by the robot's radius — Nav2's costmap inflation.
 
     Planning on the raw grid produces paths that graze obstacles, and a controller
     aiming at a lookahead point then cuts the corner straight through them. Inflating
     first is what buys the clearance that makes corner-cutting safe.
+
+    The radius comes from the navmesh's own profile when it is not passed explicitly, so a
+    twin generated for a forklift plans like a forklift and the caller does not have to
+    know which robot it was built for. Navmeshes written before profiles existed carry no
+    profile key and fall back to ROBOT_RADIUS, which is the value they were built with.
     """
+    if radius is None:
+        radius = float(navmesh.get("profile", {}).get("robot_radius", ROBOT_RADIUS))
     cell, grid = navmesh["cell"], navmesh["grid"]
     height, width = navmesh["height"], navmesh["width"]
     reach = int(np.ceil(radius / cell))

@@ -12,6 +12,8 @@ import os
 
 import yaml
 
+from twin.profile import profile_for
+
 RULES_PATH = os.path.join(os.path.dirname(__file__), "rules", "mapping.yaml")
 DEFAULT_RULE = {"prefab": "Props/Generic", "collider": "BoxCollider"}
 
@@ -63,7 +65,7 @@ def _scene_object(obj: dict, rules: dict) -> dict:
     }
 
 
-def _navmesh(objects: list, cell: float, points=None) -> dict:
+def _navmesh(objects: list, cell: float, points=None, profile=None) -> dict:
     """2D occupancy grid over the floor.
 
     Occupancy comes from the point cloud when it is available, and only from bounding
@@ -72,11 +74,20 @@ def _navmesh(objects: list, cell: float, points=None) -> dict:
     that way, and a room that segments as one connected shell comes out entirely
     blocked. Points carry the concavity that a bbox throws away, so the walls block and
     the floor between them stays open.
+
+    `profile` decides how tall a band counts as an obstacle, because that is a fact about
+    the robot rather than the room: a low delivery bot passes under a shelf that would stop
+    a forklift. The profile is written into the returned dict so the planner can inflate by
+    the same robot's radius without being told about it separately.
     """
+    resolved = profile if profile is not None else profile_for(None)
+    sweep_height = resolved.robot_height
+
     floors = [o for o in objects if o["label"] in WALKABLE_LABELS]
     extent = floors or objects
     if not extent:
-        return {"origin": [0, 0], "cell": cell, "width": 0, "height": 0, "grid": []}
+        return {"origin": [0, 0], "cell": cell, "width": 0, "height": 0, "grid": [],
+                "profile": resolved.as_dict()}
 
     xmin = min(o["bbox3d"][0] for o in extent)
     ymin = min(o["bbox3d"][1] for o in extent)
@@ -98,7 +109,7 @@ def _navmesh(objects: list, cell: float, points=None) -> dict:
     if points is not None and len(points) > 0:
         floor_z = min(o["bbox3d"][2] for o in extent)
         for x, y, z in points:
-            if not (floor_z + FLOOR_CLEARANCE <= z <= floor_z + ROBOT_HEIGHT):
+            if not (floor_z + FLOOR_CLEARANCE <= z <= floor_z + sweep_height):
                 continue
             col, row = int((x - xmin) / cell), int((y - ymin) / cell)
             if 0 <= col < width and 0 <= row < height:
@@ -111,7 +122,8 @@ def _navmesh(objects: list, cell: float, points=None) -> dict:
             block(ox0, oy0, ox1, oy1)
 
     return {"origin": [xmin, ymin], "cell": cell,
-            "width": width, "height": height, "grid": grid}
+            "width": width, "height": height, "grid": grid,
+            "profile": resolved.as_dict()}
 
 
 def is_blocked(navmesh: dict, x: float, y: float) -> bool:
@@ -142,17 +154,24 @@ def nearest_free(navmesh: dict, x: float, y: float):
     return best
 
 
-def generate_twin(objects: list, out_dir: str, cell: float = 0.1, points=None) -> dict:
+def generate_twin(objects: list, out_dir: str, cell: float = 0.1, points=None,
+                  profile=None) -> dict:
     """Write scene.json + navmesh.json for the Unity batch-mode generator.
 
     `points` is the reconstructed cloud; pass it whenever it is on hand, so the navmesh
     is built from measured geometry rather than from bounding boxes.
+
+    `profile` is an EnvironmentProfile (twin/profile.py). Omit it and the twin is built for
+    the generic robot, which is exactly the behaviour that existed before profiles — so the
+    same scan can be re-generated for a different robot without re-scanning the room.
     """
     os.makedirs(out_dir, exist_ok=True)
     rules = load_rules()
+    resolved = profile if profile is not None else profile_for(None)
 
     scene = {
         "unity_from_world": UNITY_FROM_WORLD,
+        "profile": resolved.as_dict(),
         "objects": [_scene_object(o, rules) for o in objects],
     }
     scene_path = os.path.join(out_dir, "scene.json")
@@ -161,7 +180,7 @@ def generate_twin(objects: list, out_dir: str, cell: float = 0.1, points=None) -
 
     navmesh_path = os.path.join(out_dir, "navmesh.json")
     with open(navmesh_path, "w") as f:
-        json.dump(_navmesh(objects, cell, points), f)
+        json.dump(_navmesh(objects, cell, points, resolved), f)
 
     return {"scene_path": scene_path, "navmesh_path": navmesh_path,
-            "object_count": len(objects)}
+            "object_count": len(objects), "profile": resolved.as_dict()}

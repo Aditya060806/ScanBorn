@@ -22,9 +22,11 @@ from reconstruction.reconstruct import read_ply, reconstruct
 from robot.adapters.registry import get_robot
 from robot.policy_runner import load_int8_policy, run_policy
 from sarvam.task_engine.graph import TaskGraph
-from sarvam.task_engine.provider import get_planner
+from sarvam.task_engine.profile_planner import get_profiler
+from sarvam.task_engine.provider import get_planner, is_remote, selected_provider
 from semantic.service.inference import segment_points
 from twin.generator import generate_twin, nearest_free
+from twin.profile import profile_for
 
 app = FastAPI(title="ScanBorn Orchestrator", version="2.0")
 
@@ -210,16 +212,25 @@ def generate_twin_endpoint(body: dict = Body(...)):
         raise HTTPException(
             400, f"no semantic objects for mesh {mesh_id!r}; POST /segment first")
 
+    # An explicitly named environment wins over inference: an operator who knows the space
+    # should not have to argue with a classifier. Otherwise the profiler reads the scene.
+    profile = (profile_for(body["environment"]) if body.get("environment")
+               else get_profiler().profile(objects))
+
     # The cloud, not the bounding boxes, decides what the robot can drive through.
     points, _ = read_ply(mesh["ply_url"])
-    result = generate_twin(objects, artifacts_dir("twins", mesh_id), points=points)
+    result = generate_twin(objects, artifacts_dir("twins", mesh_id), points=points,
+                           profile=profile)
     twin_id = db.insert(conn, "twins", mesh_id=mesh_id,
                         unity_scene_url=result["scene_path"],
                         navmesh_url=result["navmesh_path"])
     jobs.finish_job(job_id, detail=twin_id)
     return {"twin_id": twin_id, "job_id": job_id,
             "unity_scene_url": result["scene_path"],
-            "object_count": result["object_count"]}
+            "object_count": result["object_count"],
+            # The twin is only meaningful for a specific robot; say which one it was built
+            # for rather than letting the caller assume the old hardcoded default.
+            "profile": result["profile"]}
 
 
 # ------------------------------------------------------------------------------ plan
@@ -233,15 +244,20 @@ def plan(body: dict = Body(...)):
     job_id = jobs.create_job("plan")
 
     objects = _objects_for(conn, twin["mesh_id"])
+    # Ask the registry which tier is selected rather than sniffing the planner's class
+    # name — that check silently reported every non-Sarvam backend as function_gemma,
+    # which would have labelled a Groq-planned graph as on-device.
+    provider = selected_provider()
     planner = get_planner([o["label"] for o in objects])
     graph = planner.plan(text, lang)
-    provider = "sarvam" if type(planner).__name__ == "SarvamPlanner" else "function_gemma"
 
     graph_id = db.insert(conn, "task_graphs", twin_id=twin_id, source_text=text,
                          lang=lang, provider=provider, graph_json=graph.to_json())
     jobs.finish_job(job_id, detail=graph_id)
     return {"task_graph_id": graph_id, "job_id": job_id,
-            "graph_json": graph.to_json(), "provider": provider}
+            "graph_json": graph.to_json(), "provider": provider,
+            # Stated explicitly so a caller never has to infer it from the provider name.
+            "on_device": not is_remote()}
 
 
 def _load_navmesh(twin: dict) -> dict:

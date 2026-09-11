@@ -31,7 +31,10 @@ CREATE TABLE IF NOT EXISTS twins(
 CREATE TABLE IF NOT EXISTS task_graphs(
     id TEXT PRIMARY KEY, twin_id TEXT NOT NULL REFERENCES twins(id),
     source_text TEXT, lang TEXT,
-    provider TEXT CHECK (provider IN ('sarvam','function_gemma')),
+    -- Matches SCANBORN_PLANNER, so the row records which tier answered.
+    -- 'function_gemma' is the pre-profile name for 'local' and is kept so an
+    -- existing dev database still validates.
+    provider TEXT CHECK (provider IN ('local','groq','sarvam','function_gemma')),
     graph_json TEXT,
     created_at TEXT DEFAULT (datetime('now')));
 CREATE TABLE IF NOT EXISTS demonstrations(

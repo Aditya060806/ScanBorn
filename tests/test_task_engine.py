@@ -2,7 +2,8 @@ import pytest
 
 from sarvam.task_engine.fallback import FunctionGemmaPlanner
 from sarvam.task_engine.graph import VOCABULARY, TaskGraph, TaskNode
-from sarvam.task_engine.provider import get_planner
+from sarvam.task_engine.groq_provider import GroqPlanner
+from sarvam.task_engine.provider import get_planner, is_remote
 from sarvam.task_engine.sarvam_provider import SarvamPlanner
 
 
@@ -55,17 +56,55 @@ def test_graph_json_round_trip():
     assert TaskGraph.from_json(graph.to_json()) == graph
 
 
-def test_factory_picks_offline_planner_without_a_key(monkeypatch):
-    monkeypatch.delenv("SARVAM_API_KEY", raising=False)
+def test_factory_defaults_to_the_offline_planner(monkeypatch):
+    monkeypatch.delenv("SCANBORN_PLANNER", raising=False)
     assert isinstance(get_planner(["table"]), FunctionGemmaPlanner)
 
 
-def test_factory_picks_sarvam_when_key_is_set(monkeypatch):
+def test_api_keys_alone_never_reach_the_network(monkeypatch):
+    """The regression that matters: a stray key must not silently go remote.
+
+    This asserted the opposite before — whichever cloud key was in the environment won.
+    A key in a shell profile was then enough to put a network call inside a demo whose
+    whole claim is that nothing leaves the device.
+    """
+    monkeypatch.delenv("SCANBORN_PLANNER", raising=False)
     monkeypatch.setenv("SARVAM_API_KEY", "sk-test")
-    assert isinstance(get_planner([]), SarvamPlanner)
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-test")
+    assert isinstance(get_planner([]), FunctionGemmaPlanner)
+    assert is_remote() is False
+
+
+@pytest.mark.parametrize("provider,expected", [
+    ("local", FunctionGemmaPlanner),
+    ("sarvam", SarvamPlanner),
+    ("groq", GroqPlanner),
+])
+def test_naming_a_provider_selects_it(monkeypatch, provider, expected):
+    monkeypatch.setenv("SCANBORN_PLANNER", provider)
+    assert isinstance(get_planner([]), expected)
+
+
+def test_unknown_provider_falls_back_to_local(monkeypatch):
+    monkeypatch.setenv("SCANBORN_PLANNER", "does-not-exist")
+    assert isinstance(get_planner([]), FunctionGemmaPlanner)
+
+
+@pytest.mark.parametrize("provider,remote", [
+    ("local", False), ("groq", True), ("sarvam", True), ("nonsense", False),
+])
+def test_is_remote_reports_whether_the_network_is_used(monkeypatch, provider, remote):
+    monkeypatch.setenv("SCANBORN_PLANNER", provider)
+    assert is_remote() is remote
 
 
 def test_sarvam_planner_refuses_to_run_without_a_key(monkeypatch):
     monkeypatch.delenv("SARVAM_API_KEY", raising=False)
     with pytest.raises(RuntimeError, match="SARVAM_API_KEY"):
         SarvamPlanner().plan("go to the table")
+
+
+def test_groq_planner_refuses_to_run_without_a_key(monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="GROQ_API_KEY"):
+        GroqPlanner().plan("go to the table")

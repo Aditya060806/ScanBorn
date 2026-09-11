@@ -88,10 +88,14 @@ def test_full_pipeline_reaches_a_running_deployment(client):
     twin = client.post("/generate-twin", json={
         "mesh_id": mesh["mesh_id"], "objects_id": segmented["objects_id"]}).json()
     assert json.load(open(twin["unity_scene_url"]))["objects"]
+    # The twin is only meaningful for a specific robot, so it has to say which one.
+    assert twin["profile"]["environment"]
+    assert twin["profile"]["robot_radius"] > 0
 
     planned = client.post("/plan", json={
         "twin_id": twin["twin_id"], "text": "go to the table", "lang": "en"}).json()
-    assert planned["provider"] == "function_gemma"
+    assert planned["provider"] == "local"
+    assert planned["on_device"] is True
     assert json.loads(planned["graph_json"])["nodes"][0]["action"] == "navigate_to"
 
     trained = client.post("/train", json={
