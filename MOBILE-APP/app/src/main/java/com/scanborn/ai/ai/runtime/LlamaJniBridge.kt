@@ -31,11 +31,18 @@ object LlamaJniBridge {
 
     /**
      * Generate a response for the given prompt, streaming tokens via callback.
+     *
      * @param prompt    the full formatted prompt (system + history + user message)
      * @param maxTokens maximum tokens to generate
+     * @param grammar   GBNF source, or "" for normal sampled generation. When supplied,
+     *                  the model can only emit strings the grammar accepts and decoding
+     *                  switches to greedy so the same input yields the same output twice.
+     *                  An invalid grammar fails through onError rather than quietly
+     *                  generating unconstrained text — see Grammars.kt.
      * @param callback  receives each token as it's generated
      */
-    external fun generate(prompt: String, maxTokens: Int, callback: LlamaCallback)
+    external fun generate(prompt: String, maxTokens: Int, grammar: String,
+                          callback: LlamaCallback)
 
     /**
      * Signal the generation loop to stop at the next token.

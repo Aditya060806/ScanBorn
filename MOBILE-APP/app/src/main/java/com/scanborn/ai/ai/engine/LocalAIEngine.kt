@@ -32,10 +32,13 @@ interface LocalAIEngine {
      * Returns a Flow<String> that emits tokens one by one as they're generated.
      * The flow completes when generation is done.
      *
-     * @param history  previous chat messages for context
+     * @param history   previous chat messages for context
      * @param userInput the new user message
+     * @param grammar   GBNF source constraining the output, or "" for free generation.
+     *                  Defaulted so every existing chat caller is unaffected.
      */
-    fun generate(history: List<ChatMessage>, userInput: String): Flow<String>
+    fun generate(history: List<ChatMessage>, userInput: String,
+                 grammar: String = ""): Flow<String>
 
     /**
      * Stop the current generation immediately.

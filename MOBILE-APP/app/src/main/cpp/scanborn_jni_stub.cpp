@@ -26,7 +26,7 @@ Java_com_scanborn_ai_ai_runtime_LlamaJniBridge_loadModel(
 
 JNIEXPORT void JNICALL
 Java_com_scanborn_ai_ai_runtime_LlamaJniBridge_generate(
-        JNIEnv* env, jobject, jstring, jint, jobject callback) {
+        JNIEnv* env, jobject, jstring, jint, jstring, jobject callback) {
     LOGI("STUB: generate called — llama.cpp not set up yet");
     jclass cb_class = env->GetObjectClass(callback);
     jmethodID on_error = env->GetMethodID(cb_class, "onError", "(Ljava/lang/String;)V");

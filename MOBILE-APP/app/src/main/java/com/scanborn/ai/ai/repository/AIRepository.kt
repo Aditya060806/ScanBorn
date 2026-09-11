@@ -113,9 +113,13 @@ class AIRepository(context: Context) {
      * Generate a response for the user's message.
      * Returns a Flow<String> that emits tokens as they're generated.
      * Collect this flow in the ViewModel to build the response incrementally.
+     *
+     * Pass a GBNF grammar (see Grammars.kt) to constrain the output to a schema. Chat and
+     * the summarisation features leave it empty and behave exactly as before.
      */
-    fun generate(history: List<ChatMessage>, userInput: String): Flow<String> =
-        TokenStreamBuffer.clean(engine.generate(history, userInput))
+    fun generate(history: List<ChatMessage>, userInput: String,
+                 grammar: String = ""): Flow<String> =
+        TokenStreamBuffer.clean(engine.generate(history, userInput, grammar))
 
     /** Stop the current generation */
     fun stop() = engine.stop()

@@ -41,6 +41,10 @@ static std::string jstr(JNIEnv* env, jstring s) {
 struct GenContext {
     std::string prompt;
     int         maxTokens;
+    // GBNF source, or empty for unconstrained generation. When set, the model can only
+    // emit strings the grammar accepts — which is what lets a 1.5B model produce reliable
+    // task-graph and environment-profile JSON without a larger model or a retry loop.
+    std::string grammar;
     jobject     callback;
     jmethodID   onToken;
     jmethodID   onComplete;
@@ -119,9 +123,32 @@ static void run_generation(JNIEnv* env, GenContext* ctx) {
     llama_sampler* smpl = llama_sampler_chain_init(sparams);
     if (!smpl) { fireError("Failed to initialize sampler"); return; }
 
-    llama_sampler_chain_add(smpl, llama_sampler_init_top_p(0.9f, 1));
-    llama_sampler_chain_add(smpl, llama_sampler_init_temp(0.7f));
-    llama_sampler_chain_add(smpl, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+    if (!ctx->grammar.empty()) {
+        // The grammar goes in FIRST: it masks every token the grammar cannot accept, and
+        // whatever follows must only ever choose among what is left. Adding it after a
+        // truncating sampler would let top_p discard the only legal continuation and leave
+        // the grammar nothing to pick.
+        llama_sampler* gr = llama_sampler_init_grammar(vocab, ctx->grammar.c_str(), "root");
+        if (!gr) {
+            // A caller that asked for constrained output must never silently receive
+            // unconstrained output — that is how invalid JSON reaches the parser while
+            // the logs claim a grammar was applied.
+            llama_sampler_free(smpl);
+            fireError("Invalid GBNF grammar — refusing to generate unconstrained");
+            return;
+        }
+        llama_sampler_chain_add(smpl, gr);
+
+        // Greedy, not sampled. Structured extraction should be reproducible: the same
+        // scene must yield the same profile twice, or a bad demo cannot be diagnosed.
+        // This matches the temperature-0 choice on the remote providers.
+        llama_sampler_chain_add(smpl, llama_sampler_init_greedy());
+        LOGI("Grammar-constrained generation (%zu bytes of GBNF)", ctx->grammar.size());
+    } else {
+        llama_sampler_chain_add(smpl, llama_sampler_init_top_p(0.9f, 1));
+        llama_sampler_chain_add(smpl, llama_sampler_init_temp(0.7f));
+        llama_sampler_chain_add(smpl, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+    }
 
     bool stopped_by_flag = false;
 
@@ -261,7 +288,8 @@ Java_com_scanborn_ai_ai_runtime_LlamaJniBridge_loadModel(
 
 JNIEXPORT void JNICALL
 Java_com_scanborn_ai_ai_runtime_LlamaJniBridge_generate(
-        JNIEnv* env, jobject, jstring prompt, jint maxTokens, jobject callback) {
+        JNIEnv* env, jobject, jstring prompt, jint maxTokens, jstring grammar,
+        jobject callback) {
 
     jclass    cls        = env->GetObjectClass(callback);
     jmethodID onToken    = env->GetMethodID(cls, "onToken",    "(Ljava/lang/String;)V");
@@ -271,6 +299,7 @@ Java_com_scanborn_ai_ai_runtime_LlamaJniBridge_generate(
     GenContext* ctx = new GenContext();
     ctx->prompt     = jstr(env, prompt);
     ctx->maxTokens  = (int)maxTokens;
+    ctx->grammar    = jstr(env, grammar);   // "" means unconstrained
     ctx->callback   = env->NewGlobalRef(callback);
     ctx->onToken    = onToken;
     ctx->onComplete = onComplete;

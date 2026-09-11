@@ -57,15 +57,17 @@ class LlamaEngine : LocalAIEngine {
         })
     }
 
-    override fun generate(history: List<ChatMessage>, userInput: String): Flow<String> =
+    override fun generate(history: List<ChatMessage>, userInput: String,
+                          grammar: String): Flow<String> =
         callbackFlow {
             setState(AIInferenceState.Thinking)
             val prompt = PromptFormatter.buildPrompt(history, userInput)
-            Log.d(TAG, "Prompt length: ${prompt.length} chars")
+            Log.d(TAG, "Prompt length: ${prompt.length} chars, grammar: ${grammar.length}")
 
             LlamaJniBridge.generate(
                 prompt    = prompt,
                 maxTokens = MAX_TOKENS,
+                grammar   = grammar,
                 callback  = object : LlamaCallback {
                     override fun onToken(token: String) {
                         // Atomic CAS: only transitions Thinking→Responding once.
