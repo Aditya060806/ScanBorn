@@ -11,8 +11,8 @@ An Edge-Native AI Platform for Automatic Digital Twin Generation, Reinforcement 
 </p>
 
 <p align="center">
-  <a href="https://canva.link/fnuff4ozu4cst50"><b>View Presentation</b></a> • 
-  <a href="https://drive.google.com/drive/u/0/folders/15F4HBpPMoVNuzUQUgl_WtR4VTcybVTBP"><b>Demo Videos</b></a>
+  <a href="https://drive.google.com/file/d/1FVmkK1D10T_MoZQ3SAYPb0TuvyM9fdCo/view?usp=sharing"><b>View Presentation</b></a> • 
+  <a href="https://drive.google.com/drive/folders/1pjukNdoxKCu7rjAIrVEtiGQ_cdr1rQQN?usp=sharing"><b>Demo Videos</b></a>
 </p>
 
 ---
@@ -30,7 +30,21 @@ An Edge-Native AI Platform for Automatic Digital Twin Generation, Reinforcement 
 
 https://github.com/user-attachments/assets/25042198-c6a0-49a1-9c68-b741852fa50a
 
+---
 
+## Dashboard Demo
+
+<div align="center">
+
+<img src="assets/4.png" width="100%" alt="ScanBorn Dashboard - Overview" />
+
+<img src="assets/1.png" width="100%" alt="ScanBorn Dashboard - Pipeline Console" />
+
+<img src="assets/2.png" width="100%" alt="ScanBorn Dashboard - Reconstruction View" />
+
+<img src="assets/3.png" width="100%" alt="ScanBorn Dashboard - Deployment & Telemetry" />
+
+</div>
 
 ---
 
@@ -196,11 +210,6 @@ flowchart LR
 ```
 
 Designed to be approachable, even if you are new to robotics.
-
-<img width="1193" height="673" alt="image" src="https://github.com/user-attachments/assets/4c56d151-ff91-4822-b26c-8b125cda71d0" />
-<img width="1049" height="608" alt="image" src="https://github.com/user-attachments/assets/2c7e8a77-b92b-47a9-940b-e2ff9593a348" />
-
-
 ---
 
 ## Multilingual Voice Commands
@@ -1325,11 +1334,9 @@ If you discover a security vulnerability, **please do not disclose it publicly i
 
 | Name | Role |
 |------|------|
-| Aditya Kumar | AI & Reinforcement Learning |
+| Aditya Pandey | AI & Reinforcement Learning and Edge-AI & Embedded Systems |
 | Adhishvar Singh | Robotics & Autonomous Systems |
-| Deepesh Kakkar | Full-Stack & Cloud Infrastructure |
-| Aayush Bindal | Edge-AI & Embedded Systems |
-| Apoorv Singhal | Computer Vision & Digital Twin Engineer |
+| Palak Rai | Full-Stack & Cloud Infrastructure |
 
 ---
 
@@ -1338,7 +1345,7 @@ If you discover a security vulnerability, **please do not disclose it publicly i
 For questions, collaborations, or issues:
 
 ```
-adtkmr.contact@gmail.com
+aditya060806@gmail.com
 ```
 
 ---
@@ -1419,7 +1426,7 @@ If ScanBorn contributes to your research, please cite it.
   title={ScanBorn: Automatic Digital Twin Generation and Edge Reinforcement Learning Platform},
   author={Team Ghost Map},
   year={2026},
-  url={https://github.com/adt-kmr/ScanBorn}
+  url={https://github.com/Aditya060806/ScanBorn}
 }
 ```
 

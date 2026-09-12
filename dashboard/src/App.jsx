@@ -40,7 +40,6 @@ export default function App() {
       <footer className="stamp">
         <span>ScanBorn</span>
         <span>Edge-first Physical AI operating layer</span>
-        <span>Snapdragon Multiverse · Noida · July 2026</span>
       </footer>
     </div>
   );

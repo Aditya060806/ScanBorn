@@ -196,7 +196,7 @@ export default function Landing() {
             <Link className="btn btn--solid" to="/dashboard">
               Open the console
             </Link>
-            <a className="btn" href="https://github.com/adt-kmr/ScanBorn">
+            <a className="btn" href="https://github.com/Aditya060806/ScanBorn">
               Read the source
             </a>
           </div>
