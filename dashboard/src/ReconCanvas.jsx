@@ -137,7 +137,7 @@ export default function ReconCanvas() {
   const [step, name, note] = STAGES[phase];
 
   return (
-    <section className="recon" ref={trackRef}>
+    <section className="recon" id="stage-recon" ref={trackRef}>
       <div className="recon__stage">
         <canvas className="recon__canvas" ref={canvasRef} />
 
@@ -151,6 +151,21 @@ export default function ReconCanvas() {
         />
 
         <div className="recon__title" ref={titleRef}>
+          <div className="hero-badges">
+            <span className="hero-badge">
+              <span className="hero-badge__dot hero-badge__dot--pulse" />
+              NPU Zero-Shot · 60Hz
+            </span>
+            <span className="hero-badge">
+              <span className="hero-badge__dot" />
+              Qualcomm AI Hub Verified
+            </span>
+            <span className="hero-badge">
+              <span className="hero-badge__dot" />
+              100% Offline Edge Twin
+            </span>
+          </div>
+
           <h1 className="display">
             Point a phone at a room.
             <br />

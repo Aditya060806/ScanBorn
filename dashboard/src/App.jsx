@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 import Console from "./Console.jsx";
 import Landing from "./Landing.jsx";
@@ -12,6 +12,12 @@ import { Link, usePath } from "./router.jsx";
 export default function App() {
   const path = usePath();
   const onConsole = path.startsWith("/dashboard");
+  const [entered, setEntered] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setEntered(true), 40);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <div className="sheet">
@@ -20,7 +26,7 @@ export default function App() {
       <span className="reg reg--bl" aria-hidden="true" />
       <span className="reg reg--br" aria-hidden="true" />
 
-      <header className="masthead">
+      <header className={`masthead ${entered ? "masthead--entered" : ""}`}>
         <Link className="masthead__mark" to="/">
           ScanBorn
         </Link>

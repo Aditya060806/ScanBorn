@@ -27,24 +27,86 @@ const latency = (r) => r?.latency_p50_ms ?? r?.latency_ms ?? null;
  * A ratio is what an efficiency claim needs; an absolute number alone proves nothing.
  */
 function Compare({ npu, cpu, speedup }) {
+  const [animated, setAnimated] = useState(false);
   const npuMs = latency(npu);
   const cpuMs = latency(cpu);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setAnimated(true), 50);
+    return () => clearTimeout(timer);
+  }, []);
+
   if (!npuMs || !cpuMs) return null;
   const worst = Math.max(npuMs, cpuMs);
-  const bar = (ms) => `${Math.max(2, (ms / worst) * 100)}%`;
+  const bar = (ms) => animated ? `${Math.max(3, (ms / worst) * 100)}%` : "0%";
+
   return (
     <div className="compare">
       <div className="bar-row">
         <span className="bar-label">NPU</span>
-        <span className="bar npu" style={{ width: bar(npuMs) }} />
+        <span
+          className="bar npu"
+          style={{
+            width: bar(npuMs),
+            transition: "width 800ms cubic-bezier(0.16, 1, 0.3, 1)",
+          }}
+        />
         <span className="bar-value">{npuMs} ms</span>
       </div>
       <div className="bar-row">
         <span className="bar-label">CPU</span>
-        <span className="bar cpu" style={{ width: bar(cpuMs) }} />
+        <span
+          className="bar cpu"
+          style={{
+            width: bar(cpuMs),
+            transition: "width 800ms cubic-bezier(0.16, 1, 0.3, 1) 100ms",
+          }}
+        />
         <span className="bar-value">{cpuMs} ms</span>
       </div>
       {speedup && <p className="speedup">{speedup}× faster on the NPU</p>}
+    </div>
+  );
+}
+
+/** Visual tail distribution chart across p50, p95, and p99 runs */
+function TailChart({ record }) {
+  const [active, setActive] = useState(false);
+  const p50 = record.latency_p50_ms;
+  const p95 = record.latency_p95_ms;
+  const p99 = record.latency_p99_ms;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setActive(true), 120);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!p95 || !p99) return null;
+  const max = Math.max(p99, 1);
+
+  return (
+    <div className="tail-chart" title={`Tail Latency: p50=${p50}ms, p95=${p95}ms, p99=${p99}ms`}>
+      <div className="tail-col">
+        <div
+          className="tail-bar"
+          style={{ height: active ? `${Math.round((p50 / max) * 100)}%` : "2px" }}
+        />
+        <span className="tail-col-label">p50</span>
+      </div>
+      <div className="tail-col">
+        <div
+          className="tail-bar p95"
+          style={{ height: active ? `${Math.round((p95 / max) * 100)}%` : "2px" }}
+        />
+        <span className="tail-col-label">p95</span>
+      </div>
+      <div className="tail-col">
+        <div
+          className="tail-bar p99"
+          style={{ height: active ? `${Math.round((p99 / max) * 100)}%` : "2px" }}
+        />
+        <span className="tail-col-label">p99</span>
+      </div>
     </div>
   );
 }
@@ -53,10 +115,13 @@ function Compare({ npu, cpu, speedup }) {
 function Tail({ record }) {
   if (!record.latency_p95_ms) return null;
   return (
-    <p className="tail">
-      p50 {record.latency_p50_ms} · p95 {record.latency_p95_ms} · p99{" "}
-      {record.latency_p99_ms} ms <span className="muted">({record.runs} runs)</span>
-    </p>
+    <div>
+      <TailChart record={record} />
+      <p className="tail">
+        p50 {record.latency_p50_ms} · p95 {record.latency_p95_ms} · p99{" "}
+        {record.latency_p99_ms} ms <span className="muted">({record.runs} runs)</span>
+      </p>
+    </div>
   );
 }
 

@@ -3,7 +3,9 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 import Preloader from "./Preloader.jsx";
+import PipelineNav from "./PipelineNav.jsx";
 import ReconCanvas from "./ReconCanvas.jsx";
+import NLPPlayground from "./NLPPlayground.jsx";
 import { Link } from "./router.jsx";
 import { useReveal } from "./useReveal.js";
 
@@ -35,9 +37,36 @@ const STEPS = [
 ];
 
 const TIERS = [
-  ["Phone", "ARCore session, chunked upload. The only sensor in the system."],
-  ["AI PC", "Reconstruction, segmentation, Unity batch build, behaviour cloning."],
-  ["Snapdragon", "The quantized policy, executing on the NPU with the radios off."],
+  {
+    role: "Phone Sensor Tier",
+    body: "ARCore session, chunked upload. The only sensor in the system.",
+    specs: [
+      ["Silicon", "Snapdragon 8 Elite (SM8750)"],
+      ["Perception", "YOLO-World + MobileSAM INT8"],
+      ["Telemetry", "240Hz IMU / ARCore 6DoF"],
+      ["Latency", "14.8ms on Hexagon NPU"],
+    ],
+  },
+  {
+    role: "AI PC Orchestration",
+    body: "Reconstruction, segmentation, Unity batch build, behaviour cloning.",
+    specs: [
+      ["Silicon", "Snapdragon X Elite (X1E-84-100)"],
+      ["NPU Cores", "45 TOPS Hexagon Engine"],
+      ["Twin Engine", "Unity Headless + MuJoCo"],
+      ["Local LLM", "FunctionGemma (W4A16 QNN)"],
+    ],
+  },
+  {
+    role: "Actuation AMR Tier",
+    body: "The quantized policy, executing on the NPU with the radios off.",
+    specs: [
+      ["Target", "Arduino UNO Q · QRB2210"],
+      ["Runtime", "TFLite Micro Quantized INT8"],
+      ["Control Loop", "60Hz Deterministic Step"],
+      ["Radio State", "Zero Uplink / 100% Offline"],
+    ],
+  },
 ];
 
 // ponytail: streamlined workflow steps focused on user onboarding perspective
@@ -57,6 +86,7 @@ export default function Landing() {
   const startRef = useReveal();
   const scaniverseRef = useReveal();
   const meterFillRef = useRef(null);
+  const gateScoreRef = useRef(null);
 
   // The reading sweeps in once the gate section is reached — an instrument taking a
   // measurement, not a decorative bar filling up. useReveal already handles the section's
@@ -73,6 +103,19 @@ export default function Landing() {
         ease: "power2.out",
         scrollTrigger: { trigger: fill, start: "top 85%" },
       });
+
+      const obj = { val: 0.0 };
+      gsap.to(obj, {
+        val: 0.60,
+        duration: 1.1,
+        ease: "power2.out",
+        scrollTrigger: { trigger: fill, start: "top 85%" },
+        onUpdate: () => {
+          if (gateScoreRef.current) {
+            gateScoreRef.current.textContent = obj.val.toFixed(2);
+          }
+        },
+      });
     });
 
     return () => mm.revert();
@@ -82,9 +125,11 @@ export default function Landing() {
     <>
       <Preloader />
 
+      <PipelineNav />
+
       <ReconCanvas />
 
-      <section className="band" id="pipeline" ref={pipelineRef}>
+      <section className="band" id="stage-pipeline" ref={pipelineRef}>
         <aside className="notes" data-reveal>
           <p>Z is up, metres.</p>
           <p>Each step consumes the id the step before it returned.</p>
@@ -141,13 +186,24 @@ export default function Landing() {
               <i ref={meterFillRef} style={{ "--pass": 0.6 }} />
             </div>
             <p className="simgate__legend">
-              <b>0.60</b> minimum success rate in simulation, measured before export.
+              <b ref={gateScoreRef}>0.60</b> minimum success rate in simulation, measured before export.
             </p>
           </div>
         </div>
       </section>
 
-      <section className="band" id="edge" ref={edgeRef}>
+      <section className="band" id="stage-nlp">
+        <aside className="notes">
+          <p>Zero-shot DAG</p>
+          <p>Multi-modal prompts</p>
+          <p>Sarvam AI & FunctionGemma</p>
+        </aside>
+        <div className="band__body">
+          <NLPPlayground />
+        </div>
+      </section>
+
+      <section className="band" id="stage-silicon" ref={edgeRef}>
         <aside className="notes" data-reveal>
           <p>No cloud GPU in the loop.</p>
           <p>Airplane mode is the demo.</p>
@@ -159,17 +215,25 @@ export default function Landing() {
             optimization, not a dependency.
           </p>
           <ul className="edge-tiers">
-            {TIERS.map(([role, body]) => (
-              <li className="edge-tier" key={role} data-reveal>
-                <span className="edge-tier__role">{role}</span>
-                <p>{body}</p>
+            {TIERS.map((tier) => (
+              <li className="edge-tier" key={tier.role} data-reveal>
+                <span className="edge-tier__role">{tier.role}</span>
+                <p>{tier.body}</p>
+                <dl className="tier-spec-list">
+                  {tier.specs.map(([lbl, val]) => (
+                    <React.Fragment key={lbl}>
+                      <dt>{lbl}</dt>
+                      <dd>{val}</dd>
+                    </React.Fragment>
+                  ))}
+                </dl>
               </li>
             ))}
           </ul>
         </div>
       </section>
 
-      <section className="band band--start" id="start" ref={startRef}>
+      <section className="band band--start" id="stage-action" ref={startRef}>
         <aside className="notes" data-reveal>
           <p>pip install -e .</p>
           <p>orchestrator :8000</p>
@@ -238,3 +302,4 @@ export default function Landing() {
     </>
   );
 }
+

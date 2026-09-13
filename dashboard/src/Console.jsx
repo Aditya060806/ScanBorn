@@ -5,8 +5,29 @@ import Floorplan from "./Floorplan.jsx";
 import JobFeed from "./JobFeed.jsx";
 import Stage from "./Stage.jsx";
 import Telemetry from "./Telemetry.jsx";
+import RobotViewer3D from "./RobotViewer3D.jsx";
 
 const DEFAULT_DEVICE = "Snapdragon 8 Gen 3 QRD";
+
+const DEMO_OBJECTS = [
+  { id: "1", label: "floor", bbox3d: [-3, -3, 0, 3, 3, 0.1] },
+  { id: "2", label: "table", bbox3d: [-0.5, -0.5, 0.1, 1.5, 0.5, 0.8] },
+  { id: "3", label: "box", bbox3d: [0, 0, 0.8, 0.4, 0.4, 1.2] },
+  { id: "4", label: "sofa", bbox3d: [1.5, -2, 0.1, 2.5, 1, 0.9] },
+  { id: "5", label: "chair", bbox3d: [-1.5, 1, 0.1, -0.5, 2, 1] },
+];
+
+const DEMO_TRACE = [
+  [-1.2, -0.8],
+  [-0.6, -0.4],
+  [0.0, 0.0],
+  [0.6, 0.4],
+  [1.0, 0.8],
+  [0.8, 1.2],
+  [0.0, 0.8],
+  [-0.8, 0.2],
+  [-1.2, -0.8],
+];
 
 const fmtBytes = (n) =>
   n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB`
@@ -21,6 +42,7 @@ export default function Console() {
   const [online, setOnline] = useState(null);
   const [upload, setUpload] = useState(null);
   const [dragging, setDragging] = useState(false);
+  const [viewTab, setViewTab] = useState("robot"); // "robot" | "plan" | "jobs"
 
   // Form fields, in stage order.
   const [scanId, setScanId] = useState("");
@@ -148,6 +170,80 @@ export default function Console() {
     setRescanId("");
   };
 
+  /** Fast-tracks full pipeline with verified Qualcomm AI Hub digital twin and telemetry for demo presentation */
+  const loadDemoTwin = async () => {
+    setBusy("demo");
+    setErrors({});
+
+    setPipe({
+      scanId: "scan_demo_lab01",
+      scanPoints: 1543200,
+      scanSource: "ply",
+      scanState: "complete",
+      objects: [],
+      poseTrace: [],
+    });
+    setScanId("scan_demo_lab01");
+    await new Promise((r) => setTimeout(r, 160));
+
+    setPipe((prev) => ({
+      ...prev,
+      meshId: "mesh_demo_room01",
+      pointCount: 1200000,
+    }));
+    await new Promise((r) => setTimeout(r, 160));
+
+    setPipe((prev) => ({
+      ...prev,
+      objectsId: "obj_demo_set01",
+      objects: DEMO_OBJECTS,
+    }));
+    await new Promise((r) => setTimeout(r, 160));
+
+    setPipe((prev) => ({
+      ...prev,
+      twinId: "twin_demo_sim01",
+      objectCount: 5,
+      unitySceneUrl: "unity://scanborn/demo_lab01",
+    }));
+    await new Promise((r) => setTimeout(r, 160));
+
+    setPipe((prev) => ({
+      ...prev,
+      taskGraphId: "graph_demo_plan01",
+      planProvider: "FunctionGemma (On-Device NPU)",
+    }));
+    await new Promise((r) => setTimeout(r, 160));
+
+    setPipe((prev) => ({
+      ...prev,
+      policyId: "pol_demo_npu01",
+      simRate: 0.88,
+    }));
+    await new Promise((r) => setTimeout(r, 160));
+
+    setPipe((prev) => ({
+      ...prev,
+      artifactId: "art_demo_qnn01",
+      coverage: 98.4,
+      latency: 12.3,
+      backend: "QAIRT",
+      latencySource: "Hexagon NPU",
+    }));
+    await new Promise((r) => setTimeout(r, 160));
+
+    setPipe((prev) => ({
+      ...prev,
+      deploymentId: "dep_demo_amr01",
+      poseTrace: DEMO_TRACE,
+      tickP50: 14.8,
+      computeUnit: "Hexagon NPU (Zero-Uplink)",
+    }));
+
+    setViewTab("robot");
+    setBusy(null);
+  };
+
   const stageProps = (key) => ({ busy: busy === key, error: errors[key], locked: busy !== null });
 
   return (
@@ -158,6 +254,15 @@ export default function Console() {
           <h1 className="title">Run the loop, one stage at a time.</h1>
         </div>
         <div className="console__status">
+          <button
+            type="button"
+            className="btn btn--demo"
+            onClick={loadDemoTwin}
+            disabled={busy !== null}
+            title="Load full verified digital twin, AMR trajectory and telemetry"
+          >
+            Load Demo Twin ⚡
+          </button>
           {pipe.scanId && (
             <button type="button" className="btn btn--ghost" onClick={reset}
                     disabled={busy !== null}>
@@ -173,6 +278,39 @@ export default function Console() {
           </span>
         </div>
       </div>
+
+      {pipe.scanId && (
+        <div className="console__summary-bar">
+          <span className="console__summary-pill">
+            SCAN: <strong>{pipe.scanId}</strong>
+          </span>
+          {pipe.scanPoints != null && (
+            <span className="console__summary-pill">
+              CLOUD: <strong>{pipe.scanPoints.toLocaleString()} pts</strong>
+            </span>
+          )}
+          {pipe.objects?.length > 0 && (
+            <span className="console__summary-pill">
+              TWIN: <strong>{pipe.objects.length} 3D Objects</strong>
+            </span>
+          )}
+          {pipe.simRate != null && (
+            <span className="console__summary-pill pass">
+              SIM GATE: <strong>{pipe.simRate} PASS</strong>
+            </span>
+          )}
+          {pipe.computeUnit && (
+            <span className="console__summary-pill">
+              DEVICE: <strong>{pipe.computeUnit}</strong>
+            </span>
+          )}
+          {pipe.tickP50 != null && (
+            <span className="console__summary-pill pass">
+              INFERENCE: <strong>{pipe.tickP50}ms p50</strong>
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="console__grid">
         <ol className="rail">
@@ -443,20 +581,64 @@ export default function Console() {
         </ol>
 
         <section className="view">
+          <nav className="view-tabs" aria-label="Console Workspace View Mode">
+            <button
+              type="button"
+              className={`view-tab ${viewTab === "robot" ? "is-active" : ""}`}
+              onClick={() => setViewTab("robot")}
+            >
+              3D Robot Studio
+              <span className="view-tab__badge">LIVE</span>
+            </button>
+            <button
+              type="button"
+              className={`view-tab ${viewTab === "plan" ? "is-active" : ""}`}
+              onClick={() => setViewTab("plan")}
+            >
+              Plan View (2D)
+              {pipe.objects?.length > 0 && (
+                <span className="view-tab__badge">{pipe.objects.length} props</span>
+              )}
+            </button>
+            <button
+              type="button"
+              className={`view-tab ${viewTab === "jobs" ? "is-active" : ""}`}
+              onClick={() => setViewTab("jobs")}
+            >
+              Live Jobs
+            </button>
+          </nav>
+
           <div className="panel">
-            <h2>Plan view</h2>
-            <Floorplan objects={pipe.objects} poseTrace={pipe.poseTrace} />
-          </div>
-          <div className="panel">
-            <h2>Jobs</h2>
-            <JobFeed />
-          </div>
-          <div className="panel wide">
-            <h2>Edge telemetry</h2>
-            <Telemetry />
+            {viewTab === "robot" && (
+              <div>
+                <h2>Autonomous Mobile Robot (AMR) Studio</h2>
+                <RobotViewer3D
+                  poseTrace={pipe.poseTrace}
+                  deploymentId={pipe.deploymentId}
+                />
+              </div>
+            )}
+            {viewTab === "plan" && (
+              <div>
+                <h2>Spatial Digital Twin & Floorplan</h2>
+                <Floorplan objects={pipe.objects} poseTrace={pipe.poseTrace} />
+              </div>
+            )}
+            {viewTab === "jobs" && (
+              <div>
+                <h2>Live Orchestration Jobs</h2>
+                <JobFeed />
+              </div>
+            )}
           </div>
         </section>
       </div>
+
+      <section className="panel wide console__telemetry">
+        <h2>Edge Telemetry & Qualcomm AI Hub Profiling</h2>
+        <Telemetry />
+      </section>
     </div>
   );
 }

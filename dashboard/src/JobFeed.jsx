@@ -15,8 +15,13 @@ export default function JobFeed() {
       socket = new WebSocket(WS_URL);
       socket.onopen = () => setConnected(true);
       socket.onmessage = (event) => {
-        const job = JSON.parse(event.data);
-        setJobs((prev) => ({ ...prev, [job.job_id]: job }));
+        try {
+          const job = JSON.parse(event.data);
+          const time = new Date().toLocaleTimeString();
+          setJobs((prev) => ({ ...prev, [job.job_id]: { ...job, time } }));
+        } catch {
+          // ignore
+        }
       };
       socket.onclose = () => {
         setConnected(false);
@@ -39,7 +44,7 @@ export default function JobFeed() {
   if (rows.length === 0) {
     return (
       <p className="hint">
-        {connected ? "Waiting for the first job — run a stage." : "Reconnecting to the job stream…"}
+        {connected ? "Waiting for the first job — run a stage or click Load Demo Twin." : "Reconnecting to the job stream…"}
       </p>
     );
   }
@@ -53,6 +58,7 @@ export default function JobFeed() {
           <span className="detail">
             {typeof job.detail === "string" ? job.detail : JSON.stringify(job.detail ?? "")}
           </span>
+          {job.time && <span className="time-col">{job.time}</span>}
         </li>
       ))}
     </ul>

@@ -12,7 +12,18 @@ gsap.registerPlugin(ScrollTrigger);
  * Returns a ref to put on the container. No-ops under reduced motion — gsap.matchMedia
  * handles the teardown, so nothing is left half-faded if the setting changes.
  */
-export function useReveal(deps = []) {
+export function useReveal(optionsOrDeps = {}, maybeDeps = []) {
+  const isOptions = typeof optionsOrDeps === "object" && !Array.isArray(optionsOrDeps);
+  const options = isOptions ? optionsOrDeps : {};
+  const deps = isOptions ? maybeDeps : (Array.isArray(optionsOrDeps) ? optionsOrDeps : []);
+
+  const {
+    stagger = 0.07,
+    y = 26,
+    duration = 0.7,
+    start = "top 78%",
+  } = options;
+
   const ref = useRef(null);
 
   useEffect(() => {
@@ -26,11 +37,11 @@ export function useReveal(deps = []) {
     mm.add("(prefers-reduced-motion: no-preference)", () => {
       gsap.from(targets, {
         opacity: 0,
-        y: 26,
-        duration: 0.7,
+        y,
+        duration,
         ease: "power2.out",
-        stagger: 0.07,
-        scrollTrigger: { trigger: scope, start: "top 78%" },
+        stagger,
+        scrollTrigger: { trigger: scope, start },
       });
     });
 
