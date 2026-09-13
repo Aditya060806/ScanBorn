@@ -1,0 +1,50 @@
+{
+  "measured_at": "2026-09-14T01:38:56+05:30",
+  "method": "adb logcat of LlamaEngine stats (onStats JNI callback) during one chat message sent by hand; timings are the app's own measurements",
+  "device": {
+    "model": "SM-S721B",
+    "soc": "Samsung s5e9945 (Exynos 2400e)",
+    "android": "16 (API 36)",
+    "ram_kb": 7397724,
+    "cores": 10,
+    "cpu_features_relevant": ["asimddp", "i8mm", "sve", "sve2", "bf16"],
+    "cpu_features_note": "identical on all 10 cores in /proc/cpuinfo"
+  },
+  "build": "MOBILE-APP debug (assembleDebug, 2026-09-14), CPU only, -O3, no -march/-mcpu, so ggml's dotprod/i8mm kernels are compiled out",
+  "model": {
+    "name": "qwen2.5-1.5b-instruct",
+    "quantization": "Q4_K_M",
+    "file_bytes": 1117320736,
+    "n_ctx": 4096
+  },
+  "engine": {
+    "runtime": "llama.cpp (vendored) via scanborn_jni",
+    "threads_requested": 6
+  },
+  "startup": {
+    "cold_start_ms": [1108, 689],
+    "model_load_ms": [2649, 2609],
+    "model_extraction_first_launch_s_approx": 4
+  },
+  "runs": [
+    {
+      "kind": "chat, no grammar",
+      "prompt_chars_after_template": 1840,
+      "prompt_tokens": 331,
+      "prefill_ms": 9391,
+      "prefill_tok_per_s": 35.2,
+      "time_to_first_token_ms": 9430,
+      "gen_tokens": 256,
+      "decode_ms": 17685,
+      "decode_tok_per_s": 14.5,
+      "decode_tok_per_s_first_8_tokens": 19.1,
+      "total_ms": 27117,
+      "stopped_by": "MAX_TOKENS = 256"
+    }
+  ],
+  "not_measured_yet": [
+    "4-thread comparison (needs a rebuild with a different thread count)",
+    "grammar-constrained planner and profiler prompts",
+    "effect of -march / dotprod / i8mm build flags"
+  ]
+}

@@ -89,27 +89,8 @@ class SpeechController(context: Context) {
         pending?.let { pending = null; speak(it) }
     }
 
-    init {
-        if (!available) {
-            _state.value = _state.value.copy(error = "Speech recognition not available")
-        }
-        recognizer?.setRecognitionListener(listener)
-        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) {
-                _state.value = _state.value.copy(speaking = true)
-            }
-
-            override fun onDone(utteranceId: String?) {
-                _state.value = _state.value.copy(speaking = false)
-            }
-
-            @Deprecated("Required by the abstract class; the int overload is deprecated.")
-            override fun onError(utteranceId: String?) {
-                _state.value = _state.value.copy(speaking = false)
-            }
-        })
-    }
-
+    // Declared above init on purpose: Kotlin runs property initialisers and init blocks in
+    // source order, so init cannot hand the recogniser a listener declared below it.
     private val listener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
             // The moment the mic is actually open. This is what the UI needs in order to
@@ -153,6 +134,27 @@ class SpeechController(context: Context) {
         }
 
         override fun onEvent(eventType: Int, params: Bundle?) {}
+    }
+
+    init {
+        if (!available) {
+            _state.value = _state.value.copy(error = "Speech recognition not available")
+        }
+        recognizer?.setRecognitionListener(listener)
+        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {
+                _state.value = _state.value.copy(speaking = true)
+            }
+
+            override fun onDone(utteranceId: String?) {
+                _state.value = _state.value.copy(speaking = false)
+            }
+
+            @Deprecated("Required by the abstract class; the int overload is deprecated.")
+            override fun onError(utteranceId: String?) {
+                _state.value = _state.value.copy(speaking = false)
+            }
+        })
     }
 
     /**

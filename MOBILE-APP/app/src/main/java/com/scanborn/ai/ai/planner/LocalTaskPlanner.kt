@@ -52,7 +52,7 @@ class LocalTaskPlanner(private val repository: AIRepository) {
             // Empty history: this is a single-shot extraction, and carrying chat context
             // into it would let an earlier turn change how an instruction is read.
             repository.generate(
-                history = listOf(ChatMessage(text = system, isUser = true)),
+                history = listOf(ChatMessage(id = 0L, text = system, isUser = true)),
                 userInput = instruction,
                 grammar = grammar,
             ).toList().joinToString("")

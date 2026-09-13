@@ -126,7 +126,7 @@ class LocalProfiler(private val repository: AIRepository) {
 
         val raw = runCatching {
             repository.generate(
-                history = listOf(ChatMessage(text = system, isUser = true)),
+                history = listOf(ChatMessage(id = 0L, text = system, isUser = true)),
                 userInput = summary,
                 grammar = Grammars.environmentProfile(),
             ).toList().joinToString("")

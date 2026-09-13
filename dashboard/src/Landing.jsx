@@ -260,9 +260,6 @@ export default function Landing() {
             <Link className="btn btn--solid" to="/dashboard">
               Open the console
             </Link>
-            <a className="btn" href="https://github.com/Aditya060806/ScanBorn">
-              Read the source
-            </a>
           </div>
 
           <p className="prose prose--small" data-reveal>
