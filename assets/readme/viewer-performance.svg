@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="348" viewBox="0 0 1000 348" role="img" aria-labelledby="title desc">
+<title id="title">Shared 3D viewer frame time</title><desc id="desc">Laptop WebGL 2 · synthetic room / orbit + live trace · lower is better. 100,000 points: 7.1 ms; 500,000 points: 14.1 ms; Acceptance target: 33 ms. p95 frame interval; target is not a measurement. No phone rendering benchmark yet.</desc>
+<rect width="1000" height="348" rx="16" fill="#f2f4ef"/>
+<g font-family="Segoe UI,Arial,sans-serif" fill="#17342f">
+<text x="32" y="39" font-size="25" font-weight="700">Shared 3D viewer frame time</text>
+<text x="32" y="66" font-size="15" fill="#50645f">Laptop WebGL 2 · synthetic room / orbit + live trace · lower is better</text>
+<text x="32" y="119" font-size="16">100,000 points</text>
+<rect x="295" y="97" width="590" height="32" rx="5" fill="#dce5df"/>
+<rect x="295" y="97" width="126.94" height="32" rx="5" fill="#24766d"/>
+<text x="900" y="119" font-size="16" font-weight="600">7.1 ms</text>
+<text x="32" y="185" font-size="16">500,000 points</text>
+<rect x="295" y="163" width="590" height="32" rx="5" fill="#dce5df"/>
+<rect x="295" y="163" width="252.09" height="32" rx="5" fill="#24766d"/>
+<text x="900" y="185" font-size="16" font-weight="600">14.1 ms</text>
+<text x="32" y="251" font-size="16">Acceptance target</text>
+<rect x="295" y="229" width="590" height="32" rx="5" fill="#dce5df"/>
+<rect x="295" y="229" width="590.00" height="32" rx="5" fill="#24766d"/>
+<text x="900" y="251" font-size="16" font-weight="600">33 ms</text>
+<text x="32" y="324" font-size="14" fill="#50645f">p95 frame interval; target is not a measurement. No phone rendering benchmark yet.</text>
+</g></svg>

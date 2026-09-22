@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="348" viewBox="0 0 1000 348" role="img" aria-labelledby="title desc">
+<title id="title">Controller coefficient storage</title><desc id="desc">Calculated representation sizes for W (2 × 2) + b (2) · not complete file sizes. Float64 coefficients: 48 B; Int8 coefficients only: 6 B; Int8 + two float64 scales: 22 B. NPZ headers, manifest and runtime memory excluded. This is separate from the phone language model.</desc>
+<rect width="1000" height="348" rx="16" fill="#f2f4ef"/>
+<g font-family="Segoe UI,Arial,sans-serif" fill="#17342f">
+<text x="32" y="39" font-size="25" font-weight="700">Controller coefficient storage</text>
+<text x="32" y="66" font-size="15" fill="#50645f">Calculated representation sizes for W (2 × 2) + b (2) · not complete file sizes</text>
+<text x="32" y="119" font-size="16">Float64 coefficients</text>
+<rect x="295" y="97" width="590" height="32" rx="5" fill="#dce5df"/>
+<rect x="295" y="97" width="590.00" height="32" rx="5" fill="#24766d"/>
+<text x="900" y="119" font-size="16" font-weight="600">48 B</text>
+<text x="32" y="185" font-size="16">Int8 coefficients only</text>
+<rect x="295" y="163" width="590" height="32" rx="5" fill="#dce5df"/>
+<rect x="295" y="163" width="73.75" height="32" rx="5" fill="#24766d"/>
+<text x="900" y="185" font-size="16" font-weight="600">6 B</text>
+<text x="32" y="251" font-size="16">Int8 + two float64 scales</text>
+<rect x="295" y="229" width="590" height="32" rx="5" fill="#dce5df"/>
+<rect x="295" y="229" width="270.42" height="32" rx="5" fill="#24766d"/>
+<text x="900" y="251" font-size="16" font-weight="600">22 B</text>
+<text x="32" y="324" font-size="14" fill="#50645f">NPZ headers, manifest and runtime memory excluded. This is separate from the phone language model.</text>
+</g></svg>

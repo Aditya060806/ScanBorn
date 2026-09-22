@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="282" viewBox="0 0 1000 282" role="img" aria-labelledby="title desc">
+<title id="title">Phone prefill throughput</title><desc id="desc">Galaxy S24 FE · same binary / 359-token prompt / 6 threads · higher is better. Repacking off: 46.8 tok/s; Repacking on: 69.0 tok/s. Recorded single-run A/B; temperature uncontrolled. Source: benchmarks/phone.json.</desc>
+<rect width="1000" height="282" rx="16" fill="#f2f4ef"/>
+<g font-family="Segoe UI,Arial,sans-serif" fill="#17342f">
+<text x="32" y="39" font-size="25" font-weight="700">Phone prefill throughput</text>
+<text x="32" y="66" font-size="15" fill="#50645f">Galaxy S24 FE · same binary / 359-token prompt / 6 threads · higher is better</text>
+<text x="32" y="119" font-size="16">Repacking off</text>
+<rect x="295" y="97" width="590" height="32" rx="5" fill="#dce5df"/>
+<rect x="295" y="97" width="345.15" height="32" rx="5" fill="#24766d"/>
+<text x="900" y="119" font-size="16" font-weight="600">46.8 tok/s</text>
+<text x="32" y="185" font-size="16">Repacking on</text>
+<rect x="295" y="163" width="590" height="32" rx="5" fill="#dce5df"/>
+<rect x="295" y="163" width="508.88" height="32" rx="5" fill="#24766d"/>
+<text x="900" y="185" font-size="16" font-weight="600">69 tok/s</text>
+<text x="32" y="258" font-size="14" fill="#50645f">Recorded single-run A/B; temperature uncontrolled. Source: benchmarks/phone.json.</text>
+</g></svg>
