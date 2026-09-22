@@ -6,6 +6,8 @@ Uses Open3D TSDF when available; the numpy path is the always-works fallback.
 """
 import numpy as np
 
+MIN_VIEWS = 2  # a voxel must be seen from this many frames to survive fusion
+
 
 def backproject(frame: dict) -> tuple:
     """One RGB-D frame -> (Nx3 world points, Nx3 uint8 colors)."""
@@ -35,16 +37,54 @@ def voxel_dedup(points, colors, voxel_size: float):
     return points[idx], colors[idx]
 
 
-def fuse_frames(frames, voxel_size: float = 0.02) -> tuple:
-    """Fuse RGB-D frames into a voxel-deduped point cloud."""
-    all_pts, all_cols = [], []
-    for f in frames:
-        p, c = backproject(f)
-        all_pts.append(p)
-        all_cols.append(c)
+def _voxel_codes(points, voxel_size: float) -> np.ndarray:
+    """Each point's voxel as one int64, so voxels can be counted with a 1-D unique."""
+    keys = np.floor(points / voxel_size).astype(np.int64)
+    keys -= keys.min(axis=0)
+    span = keys.max(axis=0) + 1
+    return (keys[:, 0] * span[1] + keys[:, 1]) * span[2] + keys[:, 2]
+
+
+def fuse_frames_with_stats(frames, voxel_size: float = 0.02,
+                           min_views: int = MIN_VIEWS) -> tuple:
+    """Fuse RGB-D frames -> (points, colors, stats), keeping voxels several frames saw.
+
+    A voxel survives when points from at least `min_views` distinct frames fall in it (one frame
+    hitting a voxel with many pixels counts once): a surface the phone saw from several frames
+    stays, a speckle in one frame does not. A scan with fewer frames than `min_views` keeps every
+    voxel.
+    The kept point per voxel is the first one seen, as in `voxel_dedup`.
+    """
+    all_pts, all_cols, frame_ids = [], [], []
+    for index, frame in enumerate(frames):
+        points, colors = backproject(frame)
+        all_pts.append(points)
+        all_cols.append(colors)
+        frame_ids.append(np.full(len(points), index, dtype=np.int64))
+    count = len(all_pts)
+    effective = max(1, min(int(min_views), count))
+    stats = {"frames": count, "min_views": effective, "voxels": 0, "dropped_voxels": 0}
+    if count == 0 or not sum(len(p) for p in all_pts):
+        return np.zeros((0, 3)), np.zeros((0, 3), dtype=np.uint8), stats
+
     points = np.concatenate(all_pts)
     colors = np.concatenate(all_cols)
-    return voxel_dedup(points, colors, voxel_size)
+    frame_of = np.concatenate(frame_ids)
+    _, first, voxel_of = np.unique(_voxel_codes(points, voxel_size), return_index=True,
+                                   return_inverse=True)
+    voxel_of = voxel_of.reshape(-1)
+    seen = np.unique(voxel_of * count + frame_of)  # distinct (voxel, frame) pairs
+    views = np.bincount(seen // count, minlength=len(first))
+    keep = views >= effective
+    stats.update(voxels=int(len(first)), dropped_voxels=int((~keep).sum()))
+    idx = np.sort(first[keep])
+    return points[idx], colors[idx], stats
+
+
+def fuse_frames(frames, voxel_size: float = 0.02, min_views: int = MIN_VIEWS) -> tuple:
+    """Fuse RGB-D frames into a voxel-deduped point cloud (see `fuse_frames_with_stats`)."""
+    points, colors, _ = fuse_frames_with_stats(frames, voxel_size, min_views)
+    return points, colors
 
 
 def tsdf_fusion(frames, voxel_size: float = 0.02):

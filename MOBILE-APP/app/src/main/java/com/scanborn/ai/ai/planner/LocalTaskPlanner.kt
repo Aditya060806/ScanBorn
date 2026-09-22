@@ -3,7 +3,6 @@ package com.scanborn.ai.ai.planner
 import android.util.Log
 import com.scanborn.ai.ai.grammar.Grammars
 import com.scanborn.ai.ai.repository.AIRepository
-import com.scanborn.ai.model.ChatMessage
 import kotlinx.coroutines.flow.toList
 
 /**
@@ -52,7 +51,8 @@ class LocalTaskPlanner(private val repository: AIRepository) {
             // Empty history: this is a single-shot extraction, and carrying chat context
             // into it would let an earlier turn change how an instruction is read.
             repository.generate(
-                history = listOf(ChatMessage(id = 0L, text = system, isUser = true)),
+                history = emptyList(),
+                systemPrompt = system,
                 userInput = instruction,
                 grammar = grammar,
             ).toList().joinToString("")

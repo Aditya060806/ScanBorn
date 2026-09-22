@@ -29,11 +29,7 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     val entries: StateFlow<List<LibraryEntry>> = combine(_selectedType, _searchQuery) { type, query ->
         Pair(type, query)
     }.flatMapLatest { (type, query) ->
-        when {
-            query.isNotBlank()  -> repo.search(query)
-            type != null        -> repo.getByType(type)
-            else                -> repo.getAll()
-        }
+        repo.search(query, type)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     // ── Save banner ───────────────────────────────────────────────────────────
@@ -41,6 +37,8 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     val showSavedBanner: StateFlow<Boolean> = _showSavedBanner.asStateFlow()
 
     // ── Public actions ────────────────────────────────────────────────────────
+
+    fun entry(id: Long): Flow<LibraryEntry?> = repo.getById(id)
 
     fun setFilter(type: EntryType?) { _selectedType.value = type }
 

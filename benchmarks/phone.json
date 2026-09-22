@@ -1,6 +1,5 @@
 {
-  "measured_at": "2026-09-14T01:38:56+05:30",
-  "method": "adb logcat of LlamaEngine stats (onStats JNI callback) during one chat message sent by hand; timings are the app's own measurements",
+  "method": "Chat messages sent by hand in the ScanBorn app; timings are the app's own onStats JNI callback, read from adb logcat. Each run is a single measurement and phone temperature was not controlled. The baseline run used a slightly shorter prompt; every later run used the same 359-token prompt. The two repack runs are a same-binary A/B: one installed build, only debug.scanborn.repack differed.",
   "device": {
     "model": "SM-S721B",
     "soc": "Samsung s5e9945 (Exynos 2400e)",
@@ -10,41 +9,101 @@
     "cpu_features_relevant": ["asimddp", "i8mm", "sve", "sve2", "bf16"],
     "cpu_features_note": "identical on all 10 cores in /proc/cpuinfo"
   },
-  "build": "MOBILE-APP debug (assembleDebug, 2026-09-14), CPU only, -O3, no -march/-mcpu, so ggml's dotprod/i8mm kernels are compiled out",
   "model": {
     "name": "qwen2.5-1.5b-instruct",
     "quantization": "Q4_K_M",
     "file_bytes": 1117320736,
-    "n_ctx": 4096
+    "n_ctx": 4096,
+    "tensors": {
+      "Q4_K": {"count": 169, "mib": 721.7},
+      "Q6_K": {"count": 29, "mib": 337.6},
+      "F32": {"count": 141, "mib": 0.6}
+    },
+    "repack_eligible_mib": 934.1,
+    "repack_eligible_note": "Q4_K/Q5_K/Q6_K matmul weights with ne[1] % 8 == 0, excluding token_embd.weight (125.2 MiB); computed from the GGUF tensor table and matched by the device log"
   },
-  "engine": {
-    "runtime": "llama.cpp (vendored) via scanborn_jni",
-    "threads_requested": 6
+  "builds": {
+    "baseline": "MOBILE-APP debug, built 2026-09-14 00:27. -O3, no -march/-mcpu, so ggml's dotprod and i8mm kernels are compiled out.",
+    "arm_optimised": "MOBILE-APP debug, built 2026-09-14 02:50. ggml_cpu compiled with -march=armv8.2-a+dotprod+i8mm; libscanborn_jni.so contains 209 sdot and 36 smmla instructions. scanborn_jni.cpp stays baseline and checks HWCAP_ASIMDDP and HWCAP2_I8MM before loading.",
+    "arm_optimised_repack": "MOBILE-APP debug, built 2026-09-14 04:15. As arm_optimised, plus GGML_USE_CPU_REPACK on ggml_cpu. scanborn_jni.cpp sets use_extra_bufts from debug.scanborn.repack (unset = on, \"0\" = off), so both modes run from one binary."
   },
   "startup": {
-    "cold_start_ms": [1108, 689],
-    "model_load_ms": [2649, 2609],
-    "model_extraction_first_launch_s_approx": 4
+    "note": "model_load_ms after the first load benefits from a warm page cache, so load times are not a clean build comparison; the two repack launches were back to back",
+    "launches": [
+      {"build": "baseline", "cold_start_ms": 1108, "model_load_ms": 2649, "first_launch_extraction_s_approx": 4},
+      {"build": "baseline", "cold_start_ms": 689, "model_load_ms": 2609},
+      {"build": "arm_optimised", "threads": 6, "cold_start_ms": 828, "model_load_ms": 1946},
+      {"build": "arm_optimised", "threads": 4, "cold_start_ms": 979, "model_load_ms": 1593},
+      {"build": "arm_optimised", "threads": 6, "cold_start_ms": 773, "model_load_ms": 587},
+      {"build": "arm_optimised_repack", "repack": true, "threads": 6, "cold_start_ms": 1001, "model_load_ms": 2768,
+       "buffers_mib": {"CPU_REPACK": 934.14, "CPU_Mapped": 877.31, "kv": 112.0, "compute": 305.75, "output": 0.58}},
+      {"build": "arm_optimised_repack", "repack": false, "threads": 6, "cold_start_ms": 767, "model_load_ms": 2107,
+       "buffers_mib": {"CPU_Mapped": 1059.89, "kv": 112.0, "compute": 305.75, "output": 0.58}}
+    ]
+  },
+  "memory_kb": {
+    "note": "From /proc/<pid>/status and dumpsys meminfo on the arm_optimised_repack build. rss_anon is app-owned memory Android cannot reclaim (only compress to zram swap); rss_file is model-file pages Android can drop under pressure.",
+    "repack_on": {
+      "after_load":  {"total_pss": 2197656, "rss_anon": 1170036, "rss_file": 953408, "swap": 102260},
+      "after_reply": {"total_pss": 1415141, "rss_anon": 1200772, "rss_file": 61260, "swap": 125716}
+    },
+    "repack_off": {
+      "after_load":  {"total_pss": 1428441, "rss_anon": 289712, "rss_file": 1160356, "swap": 20320},
+      "after_reply": {"total_pss": 1399107, "rss_anon": 284144, "rss_file": 1040560, "swap": 83320}
+    }
   },
   "runs": [
     {
-      "kind": "chat, no grammar",
-      "prompt_chars_after_template": 1840,
-      "prompt_tokens": 331,
-      "prefill_ms": 9391,
-      "prefill_tok_per_s": 35.2,
-      "time_to_first_token_ms": 9430,
-      "gen_tokens": 256,
-      "decode_ms": 17685,
-      "decode_tok_per_s": 14.5,
-      "decode_tok_per_s_first_8_tokens": 19.1,
-      "total_ms": 27117,
-      "stopped_by": "MAX_TOKENS = 256"
+      "build": "baseline", "threads": 6, "measured_at": "2026-09-14T01:38:56+05:30", "kind": "chat, no grammar",
+      "prompt_chars_after_template": 1840, "prompt_tokens": 331,
+      "prefill_ms": 9391, "prefill_tok_per_s": 35.2, "time_to_first_token_ms": 9430,
+      "gen_tokens": 256, "decode_ms": 17685, "decode_tok_per_s": 14.5, "decode_tok_per_s_first_8_tokens": 19.1,
+      "total_ms": 27117, "stopped_by": "MAX_TOKENS = 256"
+    },
+    {
+      "build": "arm_optimised", "threads": 6, "measured_at": "2026-09-14T03:26:11+05:30", "kind": "chat, no grammar",
+      "prompt_chars_after_template": 1968, "prompt_tokens": 359,
+      "prefill_ms": 8661, "prefill_tok_per_s": 41.5, "time_to_first_token_ms": 8779,
+      "gen_tokens": 256, "decode_ms": 13395, "decode_tok_per_s": 19.1, "decode_tok_per_s_first_8_tokens": 21.9,
+      "total_ms": 22176, "stopped_by": "MAX_TOKENS = 256"
+    },
+    {
+      "build": "arm_optimised", "threads": 4,
+      "thread_source": "adb shell setprop debug.scanborn.threads 4 (confirmed by 'threads overridden' in the load log)",
+      "measured_at": "2026-09-14T03:28:48+05:30", "kind": "chat, no grammar",
+      "prompt_chars_after_template": 1968, "prompt_tokens": 359,
+      "prefill_ms": 8222, "prefill_tok_per_s": 43.7, "time_to_first_token_ms": 8252,
+      "gen_tokens": 256, "decode_ms": 15244, "decode_tok_per_s": 16.8, "decode_tok_per_s_first_8_tokens": 22.9,
+      "total_ms": 23497, "stopped_by": "MAX_TOKENS = 256"
+    },
+    {
+      "build": "arm_optimised_repack", "repack": true, "threads": 6, "measured_at": "2026-09-14T04:18:33+05:30", "kind": "chat, no grammar",
+      "prompt_chars_after_template": 1968, "prompt_tokens": 359,
+      "prefill_ms": 5200, "prefill_tok_per_s": 69.0, "time_to_first_token_ms": 5308,
+      "gen_tokens": 256, "decode_ms": 13644, "decode_tok_per_s": 18.8, "decode_tok_per_s_first_8_tokens": 15.3,
+      "total_ms": 18955, "stopped_by": "MAX_TOKENS = 256"
+    },
+    {
+      "build": "arm_optimised_repack", "repack": false, "repack_source": "adb shell setprop debug.scanborn.repack 0 (confirmed by 'weight repacking: off' in the load log)",
+      "threads": 6, "measured_at": "2026-09-14T04:19:31+05:30", "kind": "chat, no grammar",
+      "prompt_chars_after_template": 1968, "prompt_tokens": 359,
+      "prefill_ms": 7673, "prefill_tok_per_s": 46.8, "time_to_first_token_ms": 7695,
+      "gen_tokens": 256, "decode_ms": 18053, "decode_tok_per_s": 14.2, "decode_tok_per_s_first_8_tokens": 23.1,
+      "total_ms": 25749, "stopped_by": "MAX_TOKENS = 256"
     }
   ],
+  "conclusions": [
+    "ARM-optimised vs baseline at 6 threads: decode about +32%, prefill about +18%, total time about -18%.",
+    "4 vs 6 threads on the ARM-optimised build: prefill about +5%, decode about -12%, total about +6%. 6 threads remains the default.",
+    "Same-binary A/B, repack on vs off at 6 threads: prefill +47% (69.0 vs 46.8 tok/s), first token 31% sooner (5.3 vs 7.7 s), total 26% shorter (19.0 vs 25.7 s). Model load is slower with repack (2.8 vs 2.1 s).",
+    "Repack moves the eligible weights (934 MiB) out of the reclaimable model file into app-owned memory: after a reply, total PSS is about the same (1.35 vs 1.33 GiB) but rss_anon is 1.15 vs 0.28 GiB.",
+    "Decode ranged from 14.2 to 19.1 tok/s across runs of the same prompt with the same decode kernels, so decode differences of this size are within run-to-run noise here. Prefill without repacking stayed at 41-47 tok/s; 69 tok/s with repacking is well outside that range.",
+    "Repacking is on by default in the build; debug.scanborn.repack=0 turns it off for the next model load."
+  ],
   "not_measured_yet": [
-    "4-thread comparison (needs a rebuild with a different thread count)",
+    "repeated runs at a controlled temperature",
     "grammar-constrained planner and profiler prompts",
-    "effect of -march / dotprod / i8mm build flags"
+    "memory behaviour next to ARCore capture (the plan keeps them from overlapping)",
+    "one-copy model packaging (the extracted model is still a second 1.06 GB copy on storage)"
   ]
 }

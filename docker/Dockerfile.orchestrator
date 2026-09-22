@@ -1,10 +1,24 @@
 FROM python:3.11-slim
 
 WORKDIR /app
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    SCANBORN_DATA=/data SCANBORN_DB=/data/scanborn.db
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Every first-party package the orchestrator imports, and the measured numbers /benchmarks serves.
+# tests/test_docker.py fails if an import reaches a package that is not copied here.
 COPY orchestrator/ ./orchestrator/
+COPY capture/ ./capture/
+COPY deployment/ ./deployment/
+COPY policy/ ./policy/
+COPY reconstruction/ ./reconstruction/
+COPY robot/ ./robot/
+COPY sarvam/ ./sarvam/
+COPY semantic/ ./semantic/
+COPY twin/ ./twin/
+COPY benchmarks/ ./benchmarks/
+
+EXPOSE 8000 5005/udp
 CMD ["uvicorn", "orchestrator.service:app", "--host", "0.0.0.0", "--port", "8000"]

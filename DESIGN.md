@@ -112,7 +112,7 @@ itself outputs.
 
 ### Secondary
 - **Mid Teal** (`#14b09a`, ink pair `#06584e`): mid-range depth, used for the "done"/"pass"
-  state (stage markers, sim-gate pass legend, NPU unit labels).
+  state (stage markers, sim-gate pass legend, measured-value labels).
 - **Far Indigo** (`#22307e`): far-range depth, used for structural data — the plan-view
   substrate, focus rings, the primary button's hover state, `cyan`-role hint text.
 

@@ -10,6 +10,8 @@ import com.scanborn.ai.ai.streaming.TokenStreamBuffer
 import com.scanborn.ai.model.ChatMessage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
@@ -52,6 +54,8 @@ class AIRepository(context: Context) {
 
     // Mutex to ensure initialize() is idempotent (thread-safe, no double-loads)
     private val initializationLock = Mutex()
+    private val operationLock = Mutex()
+    @Volatile private var capturing = false
     private var initialized = false
     private var initializationError: Throwable? = null
 
@@ -73,6 +77,7 @@ class AIRepository(context: Context) {
      */
     suspend fun initialize(onExtractionProgress: (Float) -> Unit = {}): Result<Unit> =
         initializationLock.withLock {
+            if (capturing) return@withLock Result.failure(IllegalStateException("AI is paused while scanning"))
             if (initialized) return@withLock Result.success(Unit)
             initializationError?.let { return@withLock Result.failure(it) }
 
@@ -118,8 +123,43 @@ class AIRepository(context: Context) {
      * the summarisation features leave it empty and behave exactly as before.
      */
     fun generate(history: List<ChatMessage>, userInput: String,
-                 grammar: String = ""): Flow<String> =
-        TokenStreamBuffer.clean(engine.generate(history, userInput, grammar))
+                 grammar: String = "", systemPrompt: String? = null): Flow<String> = flow {
+        // The model may have been released (a scan started, or Android asked for memory): load it
+        // again first. When it is already loaded this returns at once.
+        operationLock.withLock {
+            check(!capturing) { "AI is paused while scanning" }
+            initialize().getOrThrow()
+            emitAll(TokenStreamBuffer.clean(engine.generate(history, userInput, grammar, systemPrompt)))
+        }
+    }
+
+    /**
+     * Free the model's memory now; the next [generate] loads it again. Called when a scan starts
+     * (ARCore needs the memory) and when Android trims the app's memory. Safe mid-generation: the
+     * generation is stopped first.
+     */
+    suspend fun release() = initializationLock.withLock {
+        if (initialized || engine.isReady()) {
+            engine.stop()
+            engine.unload()
+            Log.i(TAG, "Model released")
+        }
+        initialized = false
+        initializationError = null
+    }
+
+    suspend fun beginCapture() {
+        capturing = true
+        engine.stop()
+        try {
+            operationLock.withLock { release() }
+        } catch (e: Throwable) {
+            capturing = false
+            throw e
+        }
+    }
+
+    fun endCapture() { capturing = false }
 
     /** Stop the current generation */
     fun stop() = engine.stop()

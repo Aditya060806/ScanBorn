@@ -447,7 +447,7 @@ class ScanBornOverlayService : Service() {
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("ScanBorn Circle Learn")
-            .setContentText("Tap the ∞ bubble to circle anything and learn instantly")
+            .setContentText("Tap the ScanBorn bubble to circle anything and learn instantly")
             .setSmallIcon(android.R.drawable.ic_menu_camera)
             .setOngoing(true)
             .setContentIntent(openPi)

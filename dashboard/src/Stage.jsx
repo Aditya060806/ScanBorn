@@ -15,12 +15,24 @@ function formatOut(text) {
   });
 }
 
+// Detail fields that are for programs, not people: the full provenance record and the raw
+// candidate graph stay in the response; the stage shows what to do next.
+const MACHINE_FIELDS = new Set(["error", "provenance", "graph_json", "unresolved", "on_device"]);
+
+const showValue = (value) => {
+  if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
+    return value.join(", ");
+  }
+  return value !== null && typeof value === "object" ? JSON.stringify(value) : String(value);
+};
+
 /**
  * One rung of the pipeline. A stage stays locked until the stage before it has produced
  * the id it consumes, which is the same precondition the orchestrator enforces — better
  * to grey the button out than to let the operator earn a 404 mid-demo.
  */
 export default function Stage({ n, name, action, ready, busy, locked, error, out, onRun, children }) {
+  const [expanded, setExpanded] = useState(false);
   const state = busy ? "busy" : error ? "failed" : out ? "done" : ready ? "ready" : "waiting";
   const [duration, setDuration] = useState(null);
   const startTimeRef = useRef(null);
@@ -37,7 +49,7 @@ export default function Stage({ n, name, action, ready, busy, locked, error, out
   }, [busy, out]);
 
   return (
-    <li className={`stage ${state}`}>
+    <li className={`stage ${state}${expanded ? " is-expanded" : ""}`}>
       <div className="marker">{state === "done" ? `✓` : n}</div>
       <div className="body">
         <div className="head">
@@ -46,6 +58,9 @@ export default function Stage({ n, name, action, ready, busy, locked, error, out
             {duration && <span className="stage-duration">({duration})</span>}
           </h3>
           {out && <span className="out">{formatOut(out)}</span>}
+          <button type="button" className="stage-toggle" aria-expanded={expanded}
+            aria-label={`${expanded ? "Collapse" : "Expand"} ${name} controls`}
+            onClick={() => setExpanded(!expanded)}>{expanded ? "−" : "+"}</button>
         </div>
         <div className="fields">{children}</div>
         <button onClick={onRun} disabled={!ready || locked}>
@@ -58,11 +73,12 @@ export default function Stage({ n, name, action, ready, busy, locked, error, out
             {typeof error.detail === "object" && error.detail !== null && (
               <dl>
                 {Object.entries(error.detail)
-                  .filter(([key]) => key !== "error")
+                  .filter(([key]) => !MACHINE_FIELDS.has(key))
                   .map(([key, value]) => (
                     <React.Fragment key={key}>
                       <dt>{key.replace(/_/g, " ")}</dt>
-                      <dd>{String(value)}</dd>
+                      {/* A rover's refusal nests the rover's own answer: show it, not [object Object]. */}
+                      <dd>{showValue(value)}</dd>
                     </React.Fragment>
                   ))}
               </dl>

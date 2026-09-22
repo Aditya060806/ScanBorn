@@ -3,7 +3,6 @@ package com.scanborn.ai.ai.planner
 import android.util.Log
 import com.scanborn.ai.ai.grammar.Grammars
 import com.scanborn.ai.ai.repository.AIRepository
-import com.scanborn.ai.model.ChatMessage
 import kotlinx.coroutines.flow.toList
 
 /**
@@ -126,7 +125,8 @@ class LocalProfiler(private val repository: AIRepository) {
 
         val raw = runCatching {
             repository.generate(
-                history = listOf(ChatMessage(id = 0L, text = system, isUser = true)),
+                history = emptyList(),
+                systemPrompt = system,
                 userInput = summary,
                 grammar = Grammars.environmentProfile(),
             ).toList().joinToString("")

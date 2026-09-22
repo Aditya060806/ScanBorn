@@ -36,23 +36,45 @@ class LlamaEngine : LocalAIEngine {
          * Threads for inference, chosen at runtime rather than baked in.
          *
          * This was a hardcoded 4, which is the most likely cause of the three-minute
-         * first-token watchdog in AiTextProcessor. Both target devices are big.LITTLE and
-         * neither has 4 equal cores: the Exynos 2400e is 1x Cortex-X4 + 5x A720 + 4x A520,
-         * and a Snapdragon 8 Elite Gen 5 is 2 prime + 6 performance. Four unpinned threads
-         * can land partly on A520 efficiency cores, and llama.cpp runs a batch only as fast
-         * as its slowest thread — so the little cores set the pace for all of them.
+         * first-token watchdog in AiTextProcessor. The target phone is big.LITTLE with no
+         * 4 equal cores: the Galaxy S24 FE's Exynos 2400e is 1x Cortex-X4 + 5x A720 + 4x A520.
+         * Four unpinned threads can land partly on A520 efficiency cores, and llama.cpp runs a
+         * batch only as fast as its slowest thread — so the little cores set the pace for all
+         * of them.
          *
          * Targeting the big-core count is the heuristic that avoids that. Measure on device
          * and pin this if the numbers disagree; the stats callback exists to tell you.
          */
         private fun inferenceThreads(): Int {
             val cores = Runtime.getRuntime().availableProcessors()
+            debugThreadOverride(cores)?.let { return it }
             return when {
                 cores >= 10 -> 6   // 2400e: X4 + 5x A720. 8 Elite Gen 5: 2 + 6.
                 cores >= 8 -> 5
                 cores >= 4 -> cores - 1
                 else -> 1
             }.coerceAtLeast(1)
+        }
+
+        private const val THREADS_PROP = "debug.scanborn.threads"
+
+        /**
+         * `adb shell setprop debug.scanborn.threads 4` pins the thread count for the next model
+         * load, so comparing thread counts needs no rebuild and no 1.2 GB reinstall.
+         *
+         * Read through the `getprop` binary rather than the hidden SystemProperties API, which
+         * apps targeting API 36 cannot call. Unset, unreadable or out of range means no
+         * override — and loadModel logs the count actually used, so an ignored override is
+         * visible rather than silently measured as the wrong configuration.
+         */
+        private fun debugThreadOverride(cores: Int): Int? {
+            val raw = runCatching {
+                ProcessBuilder("getprop", THREADS_PROP).start().inputStream
+                    .bufferedReader().use { it.readText().trim() }
+            }.getOrNull()
+            val value = raw?.toIntOrNull()?.takeIf { it in 1..cores } ?: return null
+            Log.i(TAG, "threads overridden by $THREADS_PROP=$value")
+            return value
         }
     }
 
@@ -113,10 +135,10 @@ class LlamaEngine : LocalAIEngine {
     }
 
     override fun generate(history: List<ChatMessage>, userInput: String,
-                          grammar: String): Flow<String> =
+                          grammar: String, systemPrompt: String?): Flow<String> =
         callbackFlow {
             setState(AIInferenceState.Thinking)
-            val prompt = PromptFormatter.buildPrompt(history, userInput)
+            val prompt = PromptFormatter.buildPrompt(history, userInput, systemPrompt)
             Log.d(TAG, "Prompt length: ${prompt.length} chars, grammar: ${grammar.length}")
 
             // Accumulated on the JNI thread and read back on it; the StateFlow is the only
@@ -157,14 +179,15 @@ class LlamaEngine : LocalAIEngine {
                     override fun onComplete() {
                         Log.i(TAG, "Generation complete")
                         setState(AIInferenceState.Idle)
-                        // Guard: C++ may call onComplete after Kotlin cancellation
-                        // already closed the channel — avoid ClosedSendChannelException.
-                        if (!channel.isClosedForSend) channel.close()
+                        // C++ may call onComplete after Kotlin cancellation already closed the
+                        // channel. close() is idempotent (a second call does nothing and returns
+                        // false), so no isClosedForSend check — a delicate, racy API — is needed.
+                        channel.close()
                     }
                     override fun onError(message: String) {
                         Log.e(TAG, "Generation error: $message")
                         setState(AIInferenceState.Error(message))
-                        if (!channel.isClosedForSend) channel.close(Exception(message))
+                        channel.close(Exception(message))
                     }
                 }
             )

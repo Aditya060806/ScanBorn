@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -349,7 +350,7 @@ private fun EmptyState(
         Spacer(Modifier.height(10.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(
-                Triple(Icons.Default.Chat,     "Ask me anything",    "Start a conversation"),
+                Triple(Icons.AutoMirrored.Filled.Chat,     "Ask me anything",    "Start a conversation"),
                 Triple(Icons.Default.Code,     "Help me write code", "Generate or review code"),
                 Triple(Icons.Default.EditNote, "Summarize my notes", "AI-powered summaries"),
                 Triple(Icons.Default.Language, "Translate text",     "Any language supported")
@@ -517,7 +518,7 @@ private fun ChatBubble(
                         .background(Blue50, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("∞", style = MaterialTheme.typography.labelSmall, color = Blue500, fontSize = 10.sp)
+                    Text("SB", style = MaterialTheme.typography.labelSmall, color = Blue500, fontSize = 10.sp)
                 }
                 Text(
                     "ScanBorn",

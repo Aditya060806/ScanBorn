@@ -11,13 +11,15 @@ import uuid
 
 import numpy as np
 
+from reconstruction.floor import estimate_floor_z
+
 LABEL_ONTOLOGY = [
     "wall", "floor", "ceiling", "door", "window",
     "chair", "table", "shelf", "cabinet",
     "robot", "person", "obstacle",
 ]
 
-FLOOR_SLAB = 0.10       # points within this of the lowest z are floor candidates
+FLOOR_SLAB = 0.10       # points within this of the floor height are floor candidates
 FLOOR_MIN_AREA = 1.0    # m^2 of xy footprint before a flat slab counts as floor
 WALL_MIN_HEIGHT = 1.0   # tall enough to be structural
 WALL_MAX_THICKNESS = 0.3
@@ -154,11 +156,18 @@ def segment_points(points, colors=None, voxel: float = 0.05) -> list:
     bbox3d is [xmin, ymin, zmin, xmax, ymax, zmax] in metres.
     """
     points = np.asarray(points, dtype=np.float64)
+    if len(points):
+        points = points[np.isfinite(points).all(axis=1)]
     if len(points) == 0:
         return []
 
     objects = []
-    floor_z = float(points[:, 2].min())
+    # The densest low surface, not the minimum z: one flying pixel below the floor would
+    # otherwise be taken for the floor, and the real floor would cluster as furniture.
+    floor_z = estimate_floor_z(points)
+    # Anything further below the floor than the slab is an outlier or a drop-off. Neither
+    # is an object standing in the room.
+    points = points[points[:, 2] >= floor_z - FLOOR_SLAB]
     is_floor = points[:, 2] <= floor_z + FLOOR_SLAB
     floor_pts = points[is_floor]
 

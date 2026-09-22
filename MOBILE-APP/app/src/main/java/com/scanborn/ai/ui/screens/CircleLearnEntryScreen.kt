@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -111,7 +112,7 @@ fun CircleLearnEntryScreen(
                         .clickable(onClick = onNavigateBack),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.ArrowBack, "Back",
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back",
                         tint = if (isDarkTheme) TextPrimary else TextPrimaryLight,
                         modifier = Modifier.size(18.dp))
                 }
@@ -203,7 +204,7 @@ fun CircleLearnEntryScreen(
                         letterSpacing = 1.5.sp)
                     Spacer(Modifier.height(12.dp))
                     listOf(
-                        Triple(Icons.Default.TouchApp,   "1. Tap the floating ∞ bubble",    "Appears on top of any app"),
+                        Triple(Icons.Default.TouchApp,   "1. Tap the floating ScanBorn bubble",    "Appears on top of any app"),
                         Triple(Icons.Default.CropFree,   "2. Drag to select a region",       "Rectangle selection on your screen"),
                         Triple(Icons.Default.DocumentScanner, "3. OCR extracts the text",    "Powered by ML Kit — works offline"),
                         Triple(Icons.Default.AutoAwesome, "4. Choose an AI action",          "Explain, Notes, Quiz, Flashcards…"),
@@ -255,7 +256,7 @@ private fun CircleLearnOrb(isActive: Boolean) {
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Text("∞", fontSize = 32.sp, color = Color.White, fontWeight = FontWeight.Light)
+            Text("SB", fontSize = 32.sp, color = Color.White, fontWeight = FontWeight.Light)
         }
     }
 }

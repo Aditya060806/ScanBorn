@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -69,7 +71,7 @@ fun DashboardScreen(
                             .background(Blue50, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("∞", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Blue500)
+                        Text("SB", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Blue500)
                     }
                     Column {
                         Text(
@@ -312,7 +314,7 @@ private fun ChatHeroCard(
                         .background(Color.White.copy(0.15f), RoundedCornerShape(14.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Chat, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(Icons.AutoMirrored.Filled.Chat, null, tint = Color.White, modifier = Modifier.size(20.dp))
                 }
                 Column {
                     Text(
@@ -404,7 +406,7 @@ private fun BentoFeatureCard(
                     color = Blue500,
                     fontWeight = FontWeight.SemiBold
                 )
-                Icon(Icons.Default.ArrowForward, null, tint = Blue500, modifier = Modifier.size(11.dp))
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = Blue500, modifier = Modifier.size(11.dp))
             }
         }
     }

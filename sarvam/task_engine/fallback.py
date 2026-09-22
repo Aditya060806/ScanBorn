@@ -23,15 +23,19 @@ VERB_PATTERNS = [
 ]
 
 SPLIT = re.compile(r"\bthen\b|\band\b|,|;")
+# Words a clause can consist of without asking the robot to do anything.
+FILLER = {"please", "now", "then", "and", "also", "thanks", "thank", "you", "ok", "okay"}
 STOPWORDS = {"the", "a", "an", "to", "at", "on", "in", "of", "up", "down", "over",
              "there", "it", "please", "go", "near", "towards", "toward"}
 
 
-class FunctionGemmaPlanner(TaskPlanner):
-    """Keyword grammar over the fixed vocabulary, aware of the scene's object labels."""
+class KeywordPlanner(TaskPlanner):
+    """Keyword grammar over the fixed vocabulary, aware of the scene's object labels.
 
-    def __init__(self, objects=None, model_path: str = "models/function_gemma"):
-        self.model_path = model_path
+    Named FunctionGemmaPlanner until 2026-09: it never loaded FunctionGemma or any other model.
+    """
+
+    def __init__(self, objects=None):
         # Scene labels beat ontology labels: "widget" in this room is a real target.
         self.known = [str(o).lower() for o in (objects or [])] + list(LABEL_ONTOLOGY)
 
@@ -53,12 +57,20 @@ class FunctionGemmaPlanner(TaskPlanner):
         return words[-1] if words else ""
 
     def _clause_steps(self, clause: str) -> list:
-        """One clause -> the (action, target) steps it implies."""
+        """One clause -> the (action, target, params) steps it implies.
+
+        `wait` and `speak` take no target (contract.py); what to say goes in `params.text`.
+        """
         for action, phrases in VERB_PATTERNS:
             for phrase in phrases:
                 if not re.search(rf"\b{re.escape(phrase)}\b", clause):
                     continue
                 rest = clause.replace(phrase, " ", 1)
+                if action == "wait":
+                    return [("wait", "", {})]
+                if action == "speak":
+                    words = " ".join(rest.split())
+                    return [("speak", "", {"text": words[:120]} if words else {})]
                 # "take X to Y" is ditransitive: it names the thing and where it goes.
                 # Expanding it here is what makes it executable — the robot has to reach
                 # X before it can lift it, and reach Y before it can put it down.
@@ -67,28 +79,42 @@ class FunctionGemmaPlanner(TaskPlanner):
                         split[1].strip():
                     item = self._target(split[0], action)
                     dest = self._target(split[1], action)
-                    return [("navigate_to", item), ("pickup", item),
-                            ("navigate_to", dest), ("place", dest)]
-                return [(action, self._target(rest, action))]
+                    return [("navigate_to", item, {}), ("pickup", item, {}),
+                            ("navigate_to", dest, {}), ("place", dest, {})]
+                return [(action, self._target(rest, action), {})]
         return []
 
-    def plan(self, text: str, lang: str = "en") -> TaskGraph:
+    def _named_label(self, clause: str) -> str | None:
+        hits = [(match.start(), rank, label) for rank, label in enumerate(self.known)
+                if (match := re.search(rf"\b{re.escape(label)}\b", clause))]
+        return min(hits)[2] if hits else None
+
+    def interpret(self, text: str) -> tuple:
+        """(graph, clauses it could not interpret). Nothing is dropped silently.
+
+        A clause with no verb that names a known object repeats the previous step's action —
+        "go to the table, then the door" drives to both. Any other clause without a verb is
+        returned as not understood, and the caller must ask rather than plan around it.
+        """
         steps: list = []
+        not_understood: list = []
         for clause in SPLIT.split((text or "").lower()):
             clause = clause.strip()
-            if clause:
-                steps.extend(self._clause_steps(clause))
-        nodes = [TaskNode(f"n{i}", action, target)
-                 for i, (action, target) in enumerate(steps)]
+            if not clause:
+                continue
+            found = self._clause_steps(clause)
+            if not found:
+                label = self._named_label(clause)
+                previous = steps[-1][0] if steps else None
+                if label and previous in ("navigate_to", "inspect"):
+                    found = [(previous, label, {})]
+                elif [w for w in re.findall(r"[a-z0-9_]+", clause) if w not in FILLER]:
+                    not_understood.append(clause)
+            steps.extend(found)
+        nodes = [TaskNode(f"n{i}", action, target, params)
+                 for i, (action, target, params) in enumerate(steps)]
         edges = [(a.id, b.id) for a, b in zip(nodes, nodes[1:])]
-        return TaskGraph(nodes=nodes, edges=edges)
+        return TaskGraph(nodes=nodes, edges=edges), not_understood
 
-
-class FunctionGemma:
-    """Deprecated shim so older callers keep working; use FunctionGemmaPlanner."""
-
-    def __init__(self, model_path: str = "models/function_gemma"):
-        self.model_path = model_path
-
-    def generate(self, prompt: str) -> str:
-        return FunctionGemmaPlanner().plan(prompt).to_json()
+    def plan(self, text: str, lang: str = "en") -> TaskGraph:
+        return self.interpret(text)[0]

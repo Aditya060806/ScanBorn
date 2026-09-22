@@ -173,6 +173,15 @@ def test_profiler_factory_honours_an_explicit_provider():
     assert isinstance(get_profiler("groq"), ModelProfiler)
 
 
+@pytest.mark.parametrize("name", ["sarvam", "heuristic", "groqq"])
+def test_profiler_factory_refuses_a_provider_it_does_not_support(monkeypatch, name):
+    from sarvam.task_engine.provider import ProviderSelectionError
+
+    monkeypatch.setenv("SCANBORN_PROFILER", name)
+    with pytest.raises(ProviderSelectionError, match="local, groq"):
+        get_profiler()
+
+
 # ------------------------------------------------------- the profile must change behaviour
 
 def open_room():
@@ -181,10 +190,11 @@ def open_room():
 
     objects = [box("floor", 0, 0, 0, 6, 6, 0.05),
                box("table", 2.5, 2.5, 0, 3.5, 3.5, 0.75)]
-    # Floor points plus the table's top surface.
-    floor = [(x / 10, y / 10, 0.0) for x in range(0, 61, 2) for y in range(0, 61, 2)]
-    table = [(2.5 + x / 20, 2.5 + y / 20, 0.75)
-             for x in range(0, 21, 2) for y in range(0, 21, 2)]
+    # Floor points plus the table's top surface, every 5 cm at cell-centred offsets: four
+    # points per 10 cm navmesh cell, above its three-point noise floor, and none on a cell
+    # edge where rounding would pick the cell.
+    floor = [(0.025 + x * 0.05, 0.025 + y * 0.05, 0.0) for x in range(120) for y in range(120)]
+    table = [(2.525 + x * 0.05, 2.525 + y * 0.05, 0.75) for x in range(20) for y in range(20)]
     return objects, np.array(floor + table, dtype=float)
 
 
@@ -244,11 +254,10 @@ def test_sweep_height_decides_whether_an_overhead_shelf_blocks_the_floor(tmp_pat
 
     objects = [box("floor", 0, 0, 0, 6, 6, 0.05),
                box("shelf", 2.0, 2.0, 1.30, 4.0, 4.0, 1.60)]
-    floor = [(x / 10, y / 10, 0.0) for x in range(0, 61, 2) for y in range(0, 61, 2)]
+    floor = [(0.025 + x * 0.05, 0.025 + y * 0.05, 0.0) for x in range(120) for y in range(120)]
     # A shelf suspended at 1.4 m — above a home robot's 0.8 m sweep, inside a
     # warehouse robot's 1.8 m one.
-    shelf = [(2.0 + x / 20, 2.0 + y / 20, 1.40)
-             for x in range(0, 41, 2) for y in range(0, 41, 2)]
+    shelf = [(2.025 + x * 0.05, 2.025 + y * 0.05, 1.40) for x in range(40) for y in range(40)]
     points = np.array(floor + shelf, dtype=float)
 
     free = {}

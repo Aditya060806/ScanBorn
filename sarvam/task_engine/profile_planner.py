@@ -16,7 +16,11 @@ from abc import ABC, abstractmethod
 
 from twin.profile import DEFAULT_KIND, ENVIRONMENTS, EnvironmentProfile, from_dict, profile_for
 
+from .execution import ProviderError
+from .provider import ProviderSelectionError
 from .schemas import ENVIRONMENT_KINDS, validate_environment_profile
+
+PROFILER_PROVIDERS = ("local", "groq")
 
 PROMPT = (
     "You classify indoor spaces for a mobile robot from a geometric summary.\n"
@@ -99,7 +103,7 @@ class HeuristicProfiler(ProfilePlanner):
     `labels()` list a profile provides is exactly what YOLO-World would be given), the
     label signal becomes the stronger one and these thresholds should be revisited.
 
-    ponytail: thresholds are hand-set from the four example scenarios, not fitted to data.
+    The thresholds are hand-set judgement, not fitted to data.
     """
 
     # (kind, min_area_m2, min_ceiling_m) — first match wins, so order is the priority.
@@ -135,23 +139,32 @@ class ModelProfiler(ProfilePlanner):
     `chat` is injected rather than imported so the same class serves the Groq path and the
     on-device llama.cpp path — the phone will pass a callable that runs the local model
     under the grammar from schemas.environment_profile_grammar().
+
+    A library convenience: the orchestrator runs profilers through runner.profile_scene, which
+    records every attempt. Here the fallback is at least visible afterwards: `last_fallback`
+    holds why the most recent call did not use the model's answer, or None when it did.
     """
 
     def __init__(self, chat, fallback: ProfilePlanner | None = None):
         self.chat = chat
         self.fallback = fallback or HeuristicProfiler()
+        self.last_fallback: str | None = None
 
     def profile(self, objects) -> EnvironmentProfile:
         system = PROMPT.format(kinds=", ".join(ENVIRONMENT_KINDS))
         try:
             raw = self.chat(system, summarize(objects))
             doc = json.loads(raw)
-        except (RuntimeError, ValueError, KeyError, TypeError):
+        except (ProviderError, RuntimeError, ValueError, KeyError, TypeError) as exc:
             # No key, unreachable host, or unparseable reply — the twin still gets built.
+            self.last_fallback = f"{type(exc).__name__}: {exc}"[:200]
             return self.fallback.profile(objects)
 
-        if validate_environment_profile(doc):
+        problems = validate_environment_profile(doc)
+        if problems:
+            self.last_fallback = "; ".join(problems[:3])
             return self.fallback.profile(objects)
+        self.last_fallback = None
         return from_dict(doc)
 
 
@@ -159,9 +172,14 @@ def get_profiler(provider=None) -> ProfilePlanner:
     """Local-first: the heuristic unless a remote provider is named explicitly.
 
     Mirrors get_planner. Naming a provider is the only way to reach the network — the
-    presence of an API key is not enough, on purpose.
+    presence of an API key is not enough, on purpose. An unsupported name raises
+    ProviderSelectionError rather than quietly using the heuristic.
     """
-    choice = (provider or os.environ.get("SCANBORN_PROFILER", "local")).lower()
+    choice = (provider or os.environ.get("SCANBORN_PROFILER") or "local").strip().lower()
+    if choice not in PROFILER_PROVIDERS:
+        raise ProviderSelectionError(
+            f"SCANBORN_PROFILER={choice!r} is not a profiler; use one of "
+            f"{', '.join(PROFILER_PROVIDERS)}")
     if choice == "groq":
         from .groq_provider import groq_chat
         return ModelProfiler(lambda s, u: groq_chat(s, u))

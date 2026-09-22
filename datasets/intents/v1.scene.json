@@ -1,0 +1,5 @@
+{
+  "version": "v1",
+  "description": "One entry per scene object. Two chairs make 'the chair' ambiguous on purpose.",
+  "scene_labels": ["floor", "wall", "table", "chair", "chair", "shelf", "door"]
+}

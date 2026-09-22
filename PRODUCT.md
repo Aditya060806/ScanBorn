@@ -6,8 +6,8 @@ brand
 
 ## Users
 
-Hackathon judges and technical evaluators for the Snapdragon Multiverse Hackathon (Noida,
-July 2026), plus engineers deciding whether to adopt or contribute to the pipeline. They
+Engineers and technical evaluators deciding whether the pipeline is real and worth adopting
+or contributing to (it began at the Snapdragon Multiverse Hackathon, July 2026). They
 land on `/` cold, scanning for "is this real and does it work end to end" in under a
 minute, then either open `/dashboard` (the console, a product-register tool for driving
 the actual pipeline) or go read the source. Low patience for marketing fluff, high
@@ -15,11 +15,16 @@ tolerance for technical density (endpoint signatures, return shapes, thresholds)
 
 ## Product Purpose
 
-ScanBorn is an edge-first Physical AI pipeline: point a phone at a space and get a
-simulation-ready digital twin, a robot taught by voice, and a policy that runs offline on
-Snapdragon silicon. The landing page (`Landing.jsx`) is the primary surface — it exists to
-prove the eight-call pipeline (capture → reconstruct → segment → generate twin → plan →
-train → optimize → deploy) is a real, running system, not a slide deck. Success is a judge
+ScanBorn turns a phone scan of a room into a twin with a map of where a small two-wheel robot
+fits, trains the robot's route-following controller in a simulation of that robot, and lets it
+drive only after it passes the simulation gate. Everything runs on a laptop CPU and a Galaxy S24 FE
+(no NPU, no cloud service in the loop); the robot is an ESP32 rover that runs the control loop
+itself. The loop — capture, reconstruct, segment, generate twin, mission, (plan,) train, optimize,
+deploy — is one REST API and one Python SDK.
+
+The landing page (`Landing.jsx`) is the primary surface — it exists to prove the nine-call
+pipeline is a real, running system, not a slide deck, and to say plainly which parts have not
+yet run on real hardware. Success is a judge
 or engineer believing the pipeline works and clicking through to the console or the repo.
 
 ## Brand Personality
@@ -46,7 +51,7 @@ brand.
 - **Mechanism over adjective.** Prefer a concrete endpoint signature, threshold, or file
   reference to a claim like "powerful" or "seamless."
 - **The order is enforced by data, not by the interface.** Sequence, gating, and state
-  (e.g. `SIM_GATE`, the 0.60 threshold) should be shown as real constraints, not decorative
+  (e.g. `MISSION_GATE`: 27 of 30 noisy runs within 10 cm) should be shown as real constraints, not decorative
   progress bars.
 - **Instrument, not costume.** One type family (Archivo, contrasting on its width axis)
   plus JetBrains Mono for anything the machine measured — no serif "for warmth," no second

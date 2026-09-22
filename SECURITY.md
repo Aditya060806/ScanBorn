@@ -9,7 +9,7 @@
 ## Reporting a Vulnerability
 
 We take security seriously. Please report security vulnerabilities by emailing
-the project team rather than opening a public issue.
+aditya060806@gmail.com rather than opening a public issue.
 
 **Do not** create public issues for security vulnerabilities.
 

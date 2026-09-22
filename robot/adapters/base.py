@@ -5,7 +5,15 @@ MAX_LINEAR_SPEED = 0.5  # m/s
 
 
 class ScanBornRobot(ABC):
-    """The seam between the pipeline and whatever is actually driving — sim or metal."""
+    """The seam between the pipeline and whatever is actually driving — sim or metal.
+
+    Two ways to command a robot. `move(x, y, theta)` sends a waypoint (the older interface,
+    kept for compatibility). Robots that take velocity commands set `supports_drive` and
+    implement `reset(pose)`, `step(v, omega)`, `estimated_pose` and `true_pose`, which is the
+    interface policy/evaluate.py:drive closes the control loop through.
+    """
+
+    supports_drive = False
 
     @abstractmethod
     def move(self, x: float, y: float, theta: float):

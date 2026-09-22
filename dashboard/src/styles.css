@@ -715,7 +715,7 @@ body {
 }
 
 /* ------------------------------------------------------------------- sim gate */
-/* Named `simgate`, not `gate` — Telemetry already owns `.gate` for its NPU badge. */
+/* Named `simgate`, not `gate`, to stay clear of the older `.gate` badge rules. */
 
 .simgate {
   max-width: 34rem;
@@ -894,6 +894,7 @@ body {
 
 .console__status {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 1.25rem;
 }
@@ -1283,6 +1284,202 @@ svg.plan {
   fill: var(--near-ink);
 }
 
+/* ------------------------------------------------------------- mission map */
+
+.mission-map {
+  display: grid;
+  gap: 0.6rem;
+}
+
+svg.mission-map__svg {
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+svg.mission-map__svg.is-disabled {
+  cursor: default;
+}
+
+.mission-map__grid {
+  image-rendering: pixelated;
+}
+
+.has-grid .substrate rect,
+.has-grid .prop rect {
+  fill: none;
+}
+
+.has-grid .gridline {
+  opacity: 0.45;
+}
+
+.mission-path {
+  fill: none;
+  stroke: #14b09a;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.mission-waypoint {
+  fill: #14b09a;
+}
+
+.trace--sim {
+  stroke: var(--near-ink);
+  opacity: 0.7;
+}
+
+/* A rover's drive, in the same violet as the live bar and the 3D view's live trace. */
+.trace--real {
+  stroke: #7b2cbf;
+}
+
+.mission-start,
+.mission-aim {
+  fill: #ff5b2e;
+  cursor: grab;
+}
+
+.is-disabled .mission-start,
+.is-disabled .mission-aim {
+  cursor: default;
+}
+
+.mission-start-group.is-dragging .mission-start,
+.mission-start-group.is-dragging .mission-aim {
+  cursor: grabbing;
+}
+
+.mission-aim {
+  fill: #fff;
+  stroke: #ff5b2e;
+  stroke-width: 0.012;
+}
+
+.mission-heading {
+  stroke: #ff5b2e;
+  stroke-linecap: round;
+}
+
+.mission-heading.is-unset {
+  stroke-dasharray: 0.04 0.03;
+  opacity: 0.6;
+}
+
+.mission-footprint {
+  fill: rgba(255, 91, 46, 0.08);
+  stroke: #ff5b2e;
+}
+
+.mission-goal circle {
+  fill: none;
+  stroke: var(--near-ink);
+}
+
+.mission-goal .mission-goal__dot {
+  fill: var(--near-ink);
+  stroke: none;
+}
+
+.mission-via {
+  cursor: pointer;
+}
+
+.mission-via circle {
+  fill: #fff;
+  stroke: #14b09a;
+}
+
+.mission-via text {
+  fill: var(--near-ink);
+  font-family: var(--mono);
+  pointer-events: none;
+}
+
+.mission-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: var(--ui-sm);
+}
+
+.mission-legend i,
+.mission-legend b {
+  display: inline-block;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+.mission-legend i {
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 1px solid var(--line);
+}
+
+.swatch-line {
+  width: 1.1rem;
+  height: 0;
+  border-top: 3px solid #14b09a;
+}
+
+.swatch-line--sim {
+  border-top: 2px solid var(--near-ink);
+  opacity: 0.7;
+}
+
+.mission-note {
+  margin: 0;
+  color: #b3261e;
+  font-size: var(--ui-sm);
+}
+
+.mission-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.5rem;
+}
+
+.mission-fields fieldset {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(3.6rem, 1fr));
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.35rem 0.55rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.mission-fields legend {
+  padding: 0 0.25rem;
+  color: var(--muted);
+  font-size: var(--ui-sm);
+}
+
+.mission-fields input {
+  width: 100%;
+  min-width: 0;
+}
+
+.mission-via-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 /* -------------------------------------------------------------------- jobs */
 
 .jobs {
@@ -1365,8 +1562,7 @@ svg.plan {
   border-bottom: var(--hair) solid var(--line);
 }
 
-.unit-npu { color: var(--mint-ink); }
-/* Stated plainly: the QRB2210 has no tensor NPU, and the demo must not imply one. */
+/* Stated plainly: every tier computes on a CPU, and the page must not imply otherwise. */
 .unit-cpu { color: var(--muted); }
 
 .bench-grid {
@@ -1433,7 +1629,6 @@ svg.plan {
   min-width: 2px;
 }
 
-.bar.npu { background: var(--mint); }
 .bar.cpu { background: var(--muted); }
 
 .bar-value {
@@ -2181,4 +2376,235 @@ svg.plan {
   color: var(--muted);
   font-family: var(--mono);
   font-size: 0.72rem;
+}
+
+/* ── Offline fixture banner (Console.jsx) ─────────────────────────────────────
+   A replayed recording must never read as a live run. It is announced in the text-safe
+   ink, not the graphic "near" hue, which fails contrast as small text. */
+.console__fixture-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin: 0 0 1.5rem;
+  padding: 0.85rem 1rem;
+  border: var(--hair) solid var(--near-ink);
+  background: var(--vellum-deep);
+  color: var(--graphite);
+  font-size: var(--ui-sm);
+}
+
+.console__fixture-banner strong {
+  font-family: var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--near-ink);
+}
+
+.console__fixture-banner span {
+  flex: 1 1 22rem;
+}
+
+/* ── Rover drive (live.js): the live bar with E-STOP, the rover on the map ──────── */
+.live-bar {
+  /* Sticky: while a rover drives, E-STOP stays on screen however far the rail is scrolled. */
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  margin: 0 0 1.5rem;
+  padding: 0.75rem 1rem;
+  border: var(--hair) solid var(--line);
+  background: var(--vellum-deep);
+  color: var(--graphite);
+  font-size: var(--ui-sm);
+}
+
+.live-bar.is-driving {
+  border-color: #7b2cbf;
+  box-shadow: 0 6px 18px rgba(123, 44, 191, 0.18);
+}
+
+.live-bar__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.live-bar .live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #7b2cbf;
+  animation: beacon-pulse 1.8s infinite;
+}
+
+.live-bar__chip {
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.live-bar__chip--fake {
+  border-color: var(--near-ink);
+  color: var(--near-ink);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.live-bar__actions {
+  display: inline-flex;
+  gap: 0.6rem;
+  margin-left: auto;
+}
+
+.btn--estop {
+  padding: 0.6rem 1.4rem;
+  border-color: #b3261e;
+  background: #b3261e;
+  color: #fff;
+  cursor: pointer;
+  font-variation-settings: "wdth" 84, "wght" 760;
+}
+
+.btn--estop:hover {
+  border-color: #8c1d17;
+  background: #8c1d17;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(179, 38, 30, 0.35);
+}
+
+.btn--estop kbd {
+  margin-left: 0.5rem;
+  padding: 0 0.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-bar .live-dot {
+    animation: none;
+  }
+}
+
+.view-boundary {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border: var(--hair) dashed var(--near-ink);
+  color: var(--graphite);
+  font-size: var(--ui-sm);
+}
+
+.view-boundary p {
+  margin: 0;
+}
+
+.rover-register {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.swatch-line--real {
+  border-top: 3px solid #7b2cbf;
+}
+
+.mission-rover__footprint {
+  fill: rgba(123, 44, 191, 0.1);
+  stroke: #7b2cbf;
+}
+
+.mission-rover__heading {
+  stroke: #7b2cbf;
+  stroke-linecap: round;
+}
+
+.mission-rover__body {
+  fill: #7b2cbf;
+  stroke: #fff;
+  stroke-width: 0.01;
+}
+
+/* ── NLP playground notes (NLPPlayground.jsx) ───────────────────────────────── */
+.nlp-note {
+  margin: 0;
+  padding: 1.25rem;
+  font-family: var(--mono);
+  font-size: var(--ui-sm);
+  color: var(--muted);
+}
+
+.nlp-note--error {
+  color: var(--near-ink);
+}
+
+/* ── Telemetry: phone measurements (Telemetry.jsx) ──────────────────────────── */
+.telemetry__meta {
+  margin: 0.5rem 0 1rem;
+  font-size: var(--ui-sm);
+  color: var(--muted);
+}
+
+.telemetry__table-wrap {
+  overflow-x: auto;
+}
+
+.telemetry__conclusions {
+  margin: 1rem 0 0;
+  padding-left: 1.1rem;
+  font-size: var(--ui-sm);
+  color: var(--body);
+}
+
+.telemetry__conclusions li + li {
+  margin-top: 0.35rem;
+}
+
+/* Shared measured-scene workspace; native controls never live inside the canvas. */
+.scan-workspace { position: relative; min-width: 0; }
+.scan-workspace__canvas { width: 100%; height: min(62vh, 650px); min-height: 360px; }
+.scan-workspace__canvas canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.scan-workspace__tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 0; }
+.scan-workspace__tools button, .scan-workspace__tools select { min-height: 40px; padding: 7px 10px; background: #eef0ea; border: 1px solid #bac1b5; color: #12151a; cursor: pointer; }
+.scan-workspace__tools label { display: inline-flex; gap: 5px; align-items: center; font-size: 12px; }
+.scan-workspace__tools input[type=range] { width: 100px; }
+.scan-workspace__status { font-size: 12px; padding: 8px 0; border-bottom: 1px solid #cbd1c7; }
+.scan-workspace__legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 11px; color: #4a524d; }
+.scan-workspace__fallback { position: absolute; inset: 65px 0 auto; background: #eef0ea; padding: 16px; }
+.scan-workspace__fallback svg { width: 100%; max-height: 260px; }
+.calibration-panel { width: 100%; border-top: 1px solid var(--line, #d9dde4); padding-top: 12px; }
+.calibration-panel summary { cursor: pointer; padding: 8px 0; font-weight: 600; }
+.calibration-panel label { display: block; margin: 12px 0; }
+.calibration-panel input[type="checkbox"] { width: auto; margin-right: 8px; }
+.calibration-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.calibration-chart { margin: 12px 0; }
+.calibration-chart svg { width: 100%; display: block; }
+.calibration-chart figcaption { font-size: 11px; opacity: .75; }
+.stage .stage-toggle { display: none; }
+.result-inspector { border: 1px solid var(--line); padding: 20px; margin-top: 16px; }
+.result-inspector svg { display: block; width: 100%; max-height: 260px; }
+.result-inspector figure { margin: 16px 0; }
+.result-inspector figcaption { font-size: 12px; line-height: 1.6; }
+@media (max-width: 999px) {
+  .stage .stage-toggle { display: block; margin: 0; min-height: 44px; min-width: 44px; }
+  .stage:not(.is-expanded) .fields { display: none; }
+}
+
+@media (max-width: 560px) {
+  .tiers { table-layout: fixed; overflow-wrap: anywhere; }
+  .bench-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 1200px) { .console__grid { grid-template-columns: minmax(290px, .7fr) minmax(0, 1.6fr); } }
+@media (max-width: 999px) {
+  .console__grid > .view { order: -1; }
+  .scan-workspace__canvas { height: 46vh; min-height: 300px; }
+  .scan-workspace__tools button { min-height: 44px; }
 }

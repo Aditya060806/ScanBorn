@@ -12,9 +12,10 @@ brand
 
 Four audiences, in rough order of how much the design owes them:
 
-- **Snapdragon Multiverse judges** (Noida, July 2026). Short attention, comparing many
-  projects back to back, often reading from a distance in a bright room. They need the
-  capture → deploy loop to be legible in under a minute, and they need to believe it.
+- **Evaluators seeing it cold** — reviewers, and at events, judges comparing many projects
+  back to back, often reading from a distance in a bright room (the project began at the
+  Snapdragon Multiverse Hackathon, July 2026). They need the capture → deploy loop to be
+  legible in under a minute, and they need to believe it.
 - **Robotics and edge-AI engineers.** The people who would actually `pip install` the SDK.
   They are checking whether the numbers are measured or decorative and whether the offline
   claim survives contact with real hardware. They will not forgive a fabricated benchmark.
@@ -28,13 +29,14 @@ be able to run the loop.
 
 ## Product Purpose
 
-ScanBorn is an edge-first Physical AI operating layer. Point a phone at a space and get a
-simulation-ready digital twin, a robot taught by voice in any language, and a policy that
-runs fully offline on Snapdragon silicon. The full loop — capture, reconstruct,
-semantic-label, generate twin, adapt policy, edge-optimize, deploy — is exposed as one REST
-API and one Python SDK, running on commodity edge hardware instead of a cloud GPU cluster.
+ScanBorn turns a phone scan of a room into a twin with a map of where a small two-wheel robot
+fits, trains the robot's route-following controller in a simulation of that robot, and lets it
+drive only after it passes the simulation gate. Everything runs on a laptop CPU and a Galaxy S24 FE
+(no NPU, no cloud service in the loop); the robot is an ESP32 rover that runs the control loop
+itself. The loop — capture, reconstruct, segment, generate twin, mission, (plan,) train, optimize,
+deploy — is one REST API and one Python SDK.
 
-Success looks like: a judge who has never seen the project can describe the loop after one
+Success looks like: an evaluator who has never seen the project can describe the loop after one
 scroll, and an engineer who reads the code agrees the claims are honest.
 
 ## Brand Personality
@@ -43,8 +45,8 @@ scroll, and an engineer who reads the code agrees the claims are honest.
 
 - States limits plainly rather than hiding them. "Not profiled yet" beats an implied zero.
 - Reports what was measured and names the threshold it was measured against.
-- Never oversells: the QRB2210 row in the telemetry table says "CPU (no NPU)" because that
-  is the truth, and the demo must not imply otherwise.
+- Never oversells: a local int8 bundle says "ops not profiled" and "host CPU", and the fake
+  rover says "fake" everywhere, because that is the truth and the demo must not imply otherwise.
 - Plain verbs, sentence case, no filler. Errors explain what happened and what to do.
 
 Emotional goal: earned confidence. The reader should finish trusting the numbers.

@@ -1,7 +1,10 @@
 package com.scanborn.ai.ui.screens
 
 import android.Manifest
+import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -58,11 +61,7 @@ fun SettingsScreen(isDarkTheme: Boolean, bottomPadding: Dp, onToggleTheme: () ->
     } else {
         true
     }
-    val storageGranted = remember {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) true
-        else ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) ==
-                PackageManager.PERMISSION_GRANTED
-    }
+
 
     GradientBackground(darkTheme = isDarkTheme, modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding().verticalScroll(scroll)) {
@@ -90,7 +89,7 @@ fun SettingsScreen(isDarkTheme: Boolean, bottomPadding: Dp, onToggleTheme: () ->
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("∞", fontSize = 21.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("SB", fontSize = 21.sp, color = Color.White, fontWeight = FontWeight.Bold)
                     }
                     Column {
                         Text("ScanBorn User", style = MaterialTheme.typography.titleMedium,
@@ -112,6 +111,12 @@ fun SettingsScreen(isDarkTheme: Boolean, bottomPadding: Dp, onToggleTheme: () ->
                 SettingsToggle(Icons.Default.DarkMode, "Dark Mode",
                     if (isDarkTheme) "Dark theme active" else "Light theme active",
                     isDarkTheme, onToggleTheme, isDarkTheme)
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsSection("Orchestrator", isDarkTheme) {
+                OrchestratorSettings(isDarkTheme)
             }
 
             Spacer(Modifier.height(12.dp))
@@ -165,19 +170,27 @@ fun SettingsScreen(isDarkTheme: Boolean, bottomPadding: Dp, onToggleTheme: () ->
                 SettingsDivider(isDarkTheme)
                 SettingsRowBadge(Icons.Default.Notifications, "Notifications", "For AI alerts", notifGranted, isDarkTheme)
                 SettingsDivider(isDarkTheme)
-                SettingsRowBadge(Icons.Default.FolderOpen, "Storage", "For file analyzer", storageGranted, isDarkTheme)
+                SettingsRowBadge(Icons.Default.FolderOpen, "Document access", "Choose files with the system picker", true, isDarkTheme)
             }
 
             Spacer(Modifier.height(12.dp))
 
+            // Read from the installed package, not typed in: this row once said "1.0.0",
+            // "Production Foundation" and "ScanBorn-X1", none of which existed.
+            val version = remember { appVersion(context) }
             SettingsSection("About", isDarkTheme) {
-                SettingsRow(Icons.Default.Info, "Version", "1.0.0",
+                SettingsRow(Icons.Default.Info, "Version", version,
                     if (isDarkTheme) TextSecondary else TextSecondaryLight, isDarkTheme)
                 SettingsDivider(isDarkTheme)
-                SettingsRow(Icons.Default.Code, "Build", "Production Foundation",
+                SettingsRow(Icons.Default.Code, "Build", buildKind(context),
                     if (isDarkTheme) TextSecondary else TextSecondaryLight, isDarkTheme)
                 SettingsDivider(isDarkTheme)
-                SettingsRow(Icons.Default.Memory, "Engine", "ScanBorn-X1",
+                SettingsRow(Icons.Default.Memory, "Engine", "llama.cpp (CPU)",
+                    if (isDarkTheme) TextSecondary else TextSecondaryLight, isDarkTheme)
+                SettingsDivider(isDarkTheme)
+                // The bundled asset (assets/models/README.md); read the GGUF header once a
+                // sideloaded model is possible (master plan section 5).
+                SettingsRow(Icons.Default.Psychology, "Model", "Qwen2.5-1.5B-Instruct Q4_K_M",
                     if (isDarkTheme) TextSecondary else TextSecondaryLight, isDarkTheme)
             }
 
@@ -185,10 +198,10 @@ fun SettingsScreen(isDarkTheme: Boolean, bottomPadding: Dp, onToggleTheme: () ->
 
             Column(modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("∞", fontSize = 24.sp,
+                Text("SB", fontSize = 24.sp,
                     color = if (isDarkTheme) TextDisabled else TextSecondaryLight.copy(0.4f))
                 Spacer(Modifier.height(4.dp))
-                Text("ScanBorn AI · v1.0.0", style = MaterialTheme.typography.labelSmall,
+                Text("ScanBorn AI · v$version", style = MaterialTheme.typography.labelSmall,
                     color = if (isDarkTheme) TextDisabled else TextSecondaryLight.copy(0.4f))
             }
 
@@ -244,6 +257,26 @@ private fun SettingsToggle(
             ))
     }
 }
+
+/** versionName of the installed package, or "unknown". */
+private fun appVersion(context: Context): String {
+    val info = try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.packageManager.getPackageInfo(
+                context.packageName, PackageManager.PackageInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(context.packageName, 0)
+        }
+    } catch (_: PackageManager.NameNotFoundException) {
+        null
+    }
+    return info?.versionName ?: "unknown"
+}
+
+/** "debug" or "release", from the installed package's debuggable flag. */
+private fun buildKind(context: Context): String =
+    if ((context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) "debug" else "release"
 
 @Composable
 private fun SettingsRow(icon: ImageVector, title: String, value: String,

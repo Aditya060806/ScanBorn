@@ -44,7 +44,7 @@ export default function JobFeed() {
   if (rows.length === 0) {
     return (
       <p className="hint">
-        {connected ? "Waiting for the first job — run a stage or click Load Demo Twin." : "Reconnecting to the job stream…"}
+        {connected ? "Waiting for the first job — run a stage." : "Reconnecting to the job stream…"}
       </p>
     );
   }

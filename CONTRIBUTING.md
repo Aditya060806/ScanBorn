@@ -14,7 +14,7 @@ We love your input! We want to make contributing as easy and transparent as poss
 
 ```bash
 # Clone the repository
-git clone https://github.com/adt-kmr/ScanBorn.git
+git clone https://github.com/Aditya060806/ScanBorn.git
 cd ScanBorn
 
 # Create virtual environment

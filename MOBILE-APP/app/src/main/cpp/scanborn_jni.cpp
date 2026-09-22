@@ -270,11 +270,48 @@ static void* generation_thread(void* arg) {
     return nullptr;
 }
 
+// ── CPU feature guard ─────────────────────────────────────────────────────────
+// ggml_cpu is compiled with -march=armv8.2-a+dotprod+i8mm (see CMakeLists.txt). On an
+// arm64 phone without those instructions its kernels would die with SIGILL mid-prompt,
+// so check before the first ggml call and fail the load with a reason instead. This file
+// is built without the flag, so the check itself runs on any arm64 phone.
+#include <sys/auxv.h>
+#include <asm/hwcap.h>
+
+static bool cpu_has_required_features() {
+    const bool dotprod = (getauxval(AT_HWCAP)  & HWCAP_ASIMDDP) != 0;
+    const bool i8mm    = (getauxval(AT_HWCAP2) & HWCAP2_I8MM)   != 0;
+    if (!dotprod || !i8mm) {
+        LOGE("CPU lacks %s%s%s, which this build requires; not loading the model",
+             dotprod ? "" : "dotprod", (!dotprod && !i8mm) ? " and " : "", i8mm ? "" : "i8mm");
+        return false;
+    }
+    LOGI("CPU features: dotprod + i8mm present");
+    return true;
+}
+
+// ── Weight repacking switch ───────────────────────────────────────────────────
+// Repacking (GGML_USE_CPU_REPACK, see CMakeLists.txt) is on by default.
+// `adb shell setprop debug.scanborn.repack 0` loads the next model with plain
+// memory-mapped weights instead, so both modes can be compared for speed and memory in the
+// same build. Unset, or any value other than "0", keeps repacking on.
+#include <sys/system_properties.h>
+
+static bool repack_enabled() {
+    char value[PROP_VALUE_MAX] = {0};
+    __system_property_get("debug.scanborn.repack", value);
+    return std::string(value) != "0";
+}
+
 extern "C" {
 
 JNIEXPORT jboolean JNICALL
 Java_com_scanborn_ai_ai_runtime_LlamaJniBridge_loadModel(
         JNIEnv* env, jobject, jstring modelPath, jint nCtx, jint nThreads) {
+
+    // Before freeing the current model, so a phone that cannot run this build keeps nothing
+    // half-torn-down and reports why.
+    if (!cpu_has_required_features()) return JNI_FALSE;
 
     // Bug fix: model+context assignment now fully under mutex so isModelLoaded()
     // never sees a partially-initialised state (model set, ctx not yet set).
@@ -302,6 +339,10 @@ Java_com_scanborn_ai_ai_runtime_LlamaJniBridge_loadModel(
 
     llama_model_params mp = llama_model_default_params();
     mp.n_gpu_layers = 0;
+    // Extra buffer types are where ggml's repacked weights live; see repack_enabled().
+    mp.use_extra_bufts = repack_enabled();
+    LOGI("weight repacking: %s",
+         mp.use_extra_bufts ? "on" : "off (debug.scanborn.repack=0)");
 
     llama_model* new_model = llama_model_load_from_file(path.c_str(), mp);
     if (!new_model) { LOGE("Failed to load model"); return JNI_FALSE; }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,7 +33,8 @@ fun ToolsScreen(
     onNavigateToOcr        : () -> Unit = {},
     onNavigateToScreenshot : () -> Unit = {},
     onNavigateToQuiz       : () -> Unit = {},
-    onNavigateToCircle     : () -> Unit = {}
+    onNavigateToCircle     : () -> Unit = {},
+    onNavigateToScan       : () -> Unit = {}
 ) {
     val dark = isDarkTheme
 
@@ -118,7 +120,7 @@ fun ToolsScreen(
             Spacer(Modifier.height(12.dp))
 
             // ════════════════════════════════════════════════════════════════
-            // ROW 3 — Quiz Generator | Smart Notes (equal halves)
+            // ROW 3 — Quiz Generator | Scan a space (equal halves)
             // ════════════════════════════════════════════════════════════════
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -132,12 +134,13 @@ fun ToolsScreen(
                     onClick     = onNavigateToQuiz,
                     modifier    = Modifier.weight(1f).height(144.dp)
                 )
+                // Replaces "Smart Notes", a card with nothing behind it (Phase 5 plan, decision 13).
                 ToolMediumCard(
-                    icon        = Icons.Default.EditNote,
-                    title       = "Smart Notes",
-                    description = "AI-powered note taking",
+                    icon        = Icons.Default.ViewInAr,
+                    title       = "Scan a space",
+                    description = "Depth-scan a room for the rover",
                     dark        = dark,
-                    onClick     = {},
+                    onClick     = onNavigateToScan,
                     modifier    = Modifier.weight(1f).height(144.dp)
                 )
             }
@@ -223,7 +226,7 @@ private fun ToolHeroCard(
                     }
                 }
                 Icon(
-                    Icons.Default.ArrowForward, null,
+                    Icons.AutoMirrored.Filled.ArrowForward, null,
                     tint = Blue500,
                     modifier = Modifier.size(17.dp)
                 )
@@ -295,7 +298,7 @@ private fun ToolLargeCard(
                     color = Blue500,
                     fontWeight = FontWeight.SemiBold
                 )
-                Icon(Icons.Default.ArrowForward, null, tint = Blue500, modifier = Modifier.size(11.dp))
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = Blue500, modifier = Modifier.size(11.dp))
             }
         }
     }

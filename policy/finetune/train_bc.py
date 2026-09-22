@@ -1,9 +1,8 @@
 """Behaviour cloning for the navigation policy.
 
-Deliberately a linear policy fitted by ridge regression, not a deep net: the blueprint's
-warm-start requirement (section 11.3) is "pretrained baseline, never random init", and a
-closed-form fit trains in milliseconds on a laptop with no GPU. It is also trivially
-quantizable, which is what the Hexagon export path needs.
+Deliberately a linear policy fitted by ridge regression, not a deep net: it starts from a
+pretrained baseline rather than random weights, and a closed-form fit trains in milliseconds on a
+laptop CPU. It is also trivially quantizable to the int8 bundle /optimize writes.
 """
 import numpy as np
 

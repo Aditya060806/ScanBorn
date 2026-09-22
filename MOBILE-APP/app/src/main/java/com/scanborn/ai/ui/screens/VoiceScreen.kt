@@ -74,7 +74,7 @@ fun VoiceScreen(
                         modifier = Modifier.size(16.dp))
                 }
 
-                Text("∞", fontSize = 22.sp, color = Blue500, fontWeight = FontWeight.Light)
+                Text("SB", fontSize = 22.sp, color = Blue500, fontWeight = FontWeight.Light)
 
                 // Driven by TTS now. This read "Speaking" whenever the model was generating
                 // text, while the app had no text-to-speech at all — a label for a feature

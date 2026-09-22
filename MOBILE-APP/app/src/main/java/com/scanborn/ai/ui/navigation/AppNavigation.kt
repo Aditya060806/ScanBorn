@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -32,13 +33,14 @@ import com.scanborn.ai.viewmodel.VoiceViewModel
 
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
     object Dashboard : Screen("dashboard", "Home",     Icons.Default.Home)
-    object Chat      : Screen("chat",      "Chat",     Icons.Default.Chat)
+    object Chat      : Screen("chat",      "Chat",     Icons.AutoMirrored.Filled.Chat)
+    object Spaces    : Screen("spaces", "Spaces", Icons.Default.ViewInAr)
     object Tools     : Screen("tools",     "Tools",    Icons.Default.Apps)
     object Library   : Screen("library",   "Library",  Icons.Default.AutoStories)
     object Settings  : Screen("settings",  "Settings", Icons.Default.Settings)
 }
 
-private val navItems = listOf(Screen.Dashboard, Screen.Chat, Screen.Tools, Screen.Library, Screen.Settings)
+private val navItems = listOf(Screen.Dashboard, Screen.Chat, Screen.Spaces, Screen.Tools, Screen.Library, Screen.Settings)
 
 @Composable
 fun AppNavigation(isDarkTheme: Boolean, onToggleTheme: () -> Unit) {
@@ -176,7 +178,24 @@ fun AppNavigation(isDarkTheme: Boolean, onToggleTheme: () -> Unit) {
                     onNavigateToOcr        = { navController.navigate("ocr") },
                     onNavigateToScreenshot = { navController.navigate("screenshot") },
                     onNavigateToQuiz       = { navController.navigate("quiz") },
-                    onNavigateToCircle     = { navController.navigate("circle_learn") }
+                    onNavigateToCircle     = { navController.navigate("circle_learn") },
+                    onNavigateToScan       = { navController.navigate("scan") }
+                )
+            }
+            composable(Screen.Spaces.route) {
+                SpacesScreen(onScan = { navController.navigate("scan") },
+                    bottomPadding = innerPadding.calculateBottomPadding())
+            }
+            composable("spaces/{scanId}") { entry ->
+                SpacesScreen(onScan = { navController.navigate("scan") },
+                    capturedId = entry.arguments?.getString("scanId"))
+            }
+            composable("scan") {
+                ScanScreen(
+                    isDarkTheme    = isDarkTheme,
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenSettings = { navController.navigate(Screen.Settings.route) },
+                    onInspect = { id -> navController.navigate("spaces/$id") { popUpTo("scan") { inclusive = true } } }
                 )
             }
             composable("pdf_summary") {
@@ -225,9 +244,13 @@ fun AppNavigation(isDarkTheme: Boolean, onToggleTheme: () -> Unit) {
                 LibraryScreen(
                     isDarkTheme   = isDarkTheme,
                     bottomPadding = innerPadding.calculateBottomPadding(),
-                    onOpenEntry   = { /* detail view future */ },
+                    onOpenEntry   = { navController.navigate("library/$it") },
                     vm            = libraryViewModel
                 )
+            }
+            composable("library/{entryId}") { entry ->
+                val id = entry.arguments?.getString("entryId")?.toLongOrNull()
+                LibraryDetailScreen(id, libraryViewModel) { navController.popBackStack() }
             }
             composable("voice") {
                 VoiceScreen(

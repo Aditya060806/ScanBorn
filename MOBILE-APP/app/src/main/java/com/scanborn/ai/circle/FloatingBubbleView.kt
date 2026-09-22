@@ -408,44 +408,16 @@ private fun DrawScope.drawScanBornTrace(
     )
 }
 
-// ── ScanBorn lemniscate path builder ─────────────────────────────────────────
-// Parametric lemniscate of Bernoulli approximated with cubic bezier curves.
-// Two mirrored lobes forming the ∞ symbol, centred at (cx, cy).
-
+// Scan frame with a central depth sample; matches the launcher mark.
 private fun scanbornPath(cx: Float, cy: Float, hw: Float): Path {
-    // hw = half-width of the symbol (distance from centre to loop tip)
-    val hh = hw * 0.48f   // half-height of each lobe
-    val cp = hw * 0.60f   // bezier control point offset
-
+    val h = hw * 0.8f
+    val inset = hw * 0.42f
     return Path().apply {
-        // Start at centre
-        moveTo(cx, cy)
-
-        // Right lobe — upper arc
-        cubicTo(
-            cx + cp * 0.5f, cy - hh,
-            cx + hw,        cy - hh,
-            cx + hw,        cy
-        )
-        // Right lobe — lower arc
-        cubicTo(
-            cx + hw,        cy + hh,
-            cx + cp * 0.5f, cy + hh,
-            cx,             cy
-        )
-
-        // Left lobe — lower arc
-        cubicTo(
-            cx - cp * 0.5f, cy + hh,
-            cx - hw,        cy + hh,
-            cx - hw,        cy
-        )
-        // Left lobe — upper arc
-        cubicTo(
-            cx - hw,        cy - hh,
-            cx - cp * 0.5f, cy - hh,
-            cx,             cy
-        )
-        close()
+        moveTo(cx - hw, cy - h + inset); lineTo(cx - hw, cy - h); lineTo(cx - hw + inset, cy - h)
+        moveTo(cx + hw - inset, cy - h); lineTo(cx + hw, cy - h); lineTo(cx + hw, cy - h + inset)
+        moveTo(cx + hw, cy + h - inset); lineTo(cx + hw, cy + h); lineTo(cx + hw - inset, cy + h)
+        moveTo(cx - hw + inset, cy + h); lineTo(cx - hw, cy + h); lineTo(cx - hw, cy + h - inset)
+        moveTo(cx - inset / 2, cy); lineTo(cx + inset / 2, cy)
+        moveTo(cx, cy - inset / 2); lineTo(cx, cy + inset / 2)
     }
 }

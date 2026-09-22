@@ -1,0 +1,530 @@
+{
+  "set": "v1",
+  "set_sha256": "78b33be06d30d1d9391388253d66ec120330b5d635809dadb98be41c98f5ce21",
+  "provider": "local",
+  "models": [
+    "keyword-grammar"
+  ],
+  "scene_labels": [
+    "floor",
+    "wall",
+    "table",
+    "chair",
+    "chair",
+    "shelf",
+    "door"
+  ],
+  "safety_invariant_holds": true,
+  "totals": {
+    "cases": 38,
+    "success": 16,
+    "correct_refusal": 18,
+    "refused_differently": 1,
+    "abstained": 3,
+    "wrong_plan": 0,
+    "unsafe_plan": 0,
+    "provider_failure": 0
+  },
+  "categories": {
+    "supported": {
+      "cases": 15,
+      "success": 15,
+      "correct_refusal": 0,
+      "refused_differently": 0,
+      "abstained": 0,
+      "wrong_plan": 0,
+      "unsafe_plan": 0,
+      "provider_failure": 0,
+      "semantic_success": 1.0,
+      "abstention": 0.0,
+      "refusal_accuracy": null
+    },
+    "ambiguous": {
+      "cases": 6,
+      "success": 0,
+      "correct_refusal": 6,
+      "refused_differently": 0,
+      "abstained": 0,
+      "wrong_plan": 0,
+      "unsafe_plan": 0,
+      "provider_failure": 0,
+      "semantic_success": null,
+      "abstention": null,
+      "refusal_accuracy": 1.0
+    },
+    "off_scene": {
+      "cases": 4,
+      "success": 0,
+      "correct_refusal": 4,
+      "refused_differently": 0,
+      "abstained": 0,
+      "wrong_plan": 0,
+      "unsafe_plan": 0,
+      "provider_failure": 0,
+      "semantic_success": null,
+      "abstention": null,
+      "refusal_accuracy": 1.0
+    },
+    "partial": {
+      "cases": 2,
+      "success": 0,
+      "correct_refusal": 2,
+      "refused_differently": 0,
+      "abstained": 0,
+      "wrong_plan": 0,
+      "unsafe_plan": 0,
+      "provider_failure": 0,
+      "semantic_success": null,
+      "abstention": null,
+      "refusal_accuracy": 1.0
+    },
+    "unsupported": {
+      "cases": 5,
+      "success": 0,
+      "correct_refusal": 5,
+      "refused_differently": 0,
+      "abstained": 0,
+      "wrong_plan": 0,
+      "unsafe_plan": 0,
+      "provider_failure": 0,
+      "semantic_success": null,
+      "abstention": null,
+      "refusal_accuracy": 1.0
+    },
+    "manipulation": {
+      "cases": 1,
+      "success": 1,
+      "correct_refusal": 0,
+      "refused_differently": 0,
+      "abstained": 0,
+      "wrong_plan": 0,
+      "unsafe_plan": 0,
+      "provider_failure": 0,
+      "semantic_success": 1.0,
+      "abstention": 0.0,
+      "refusal_accuracy": null
+    },
+    "multilingual": {
+      "cases": 5,
+      "success": 0,
+      "correct_refusal": 1,
+      "refused_differently": 1,
+      "abstained": 3,
+      "wrong_plan": 0,
+      "unsafe_plan": 0,
+      "provider_failure": 0,
+      "semantic_success": 0.0,
+      "abstention": 1.0,
+      "refusal_accuracy": 1.0
+    }
+  },
+  "cases": [
+    {
+      "id": "sup-01",
+      "category": "supported",
+      "expected": "planned",
+      "status": "planned",
+      "steps": [
+        [
+          "navigate_to",
+          "table"
+        ]
+      ],
+      "outcome": "success"
+    },
+    {
+      "id": "sup-02",
+      "category": "supported",
+      "expected": "planned",
+      "status": "planned",
+      "steps": [
+        [
+          "navigate_to",
+          "shelf"
+        ]
+      ],
+      "outcome": "success"
+    },
+    {
+      "id": "sup-03",
+      "category": "supported",
+      "expected": "planned",
+      "status": "planned",
+      "steps": [
+        [
+          "navigate_to",
+          "door"
+        ]
+      ],
+      "outcome": "success"
+    },
+    {
+      "id": "sup-04",
+      "category": "supported",
+      "expected": "planned",
+      "status": "planned",
+      "steps": [
+        [
+          "navigate_to",
+          "table"
+        ]
+      ],
+      "outcome": "success"
+    },
+    {
+      "id": "sup-05",
+      "category": "supported",
+      "expected": "planned",
+      "status": "planned",
+      "steps": [
+        [
+          "navigate_to",
+          "door"
+        ]
+      ],
+      "outcome": "success"
+    },
+    {
+      "id": "sup-06",
+      "category": "supported",
+      "expected": "planned",
+      "status": "planned",
+      "steps": [
+        [
+          "navigate_to",
+          "shelf"
+        ]
+      ],
+      "outcome": "success"
+    },
+    {
+      "id": "sup-07",
+      "category": "supported",
+      "expected": "planned",
+      "status": "planned",
+      "steps": [
+        [
+          "navigate_to",
+          "shelf"
+        ]
+      ],
+      "outcome": "success"
+    },
+    {
+      "id": "sup-08",
+      "category": "supported",
+      "expected": "planned",
+      "status": "planned",
+      "steps": [
+        [
+          "navigate_to",
+          "table"
+        ]
+      ],
+      "outcome": "success"
+    },
+    {
+      "id": "sup-09",
+      "category": "supported",
+      "expected": "planned",
+      "status": "planned",
+      "steps": [
+        [
+          "navigate_to",
+          "table"
+        ],
+        [
+          "navigate_to",
+          "shelf"
+        ]
+      ],
+      "outcome": "success"
+    },
+    {
+      "id": "sup-10",
+      "category": "supported",
+      "expected": "planned",
+      "status": "planned",
+      "steps": [
+        [
+          "navigate_to",
+          "table"
+        ],
+        [
+          "navigate_to",
+          "door"
+        ]
+      ],
+      "outcome": "success"
+    },
+    {
+      "id": "sup-11",
+      "category": "supported",
+      "expected": "planned",
+      "status": "planned",
+      "steps": [
+        [
+          "navigate_to",
+          "door"
+        ],
+        [
+          "wait",
+          ""
+        ]
+      ],
+      "outcome": "success"
+    },
+    {
+      "id": "sup-12",
+      "category": "supported",
+      "expected": "planned",
+      "status": "planned",
+      "steps": [
+        [
+          "inspect",
+          "shelf"
+        ]
+      ],
+      "outcome": "success"
+    },
+    {
+      "id": "sup-13",
+      "category": "supported",
+      "expected": "planned",
+      "status": "planned",
+      "steps": [
+        [
+          "inspect",
+          "table"
+        ]
+      ],
+      "outcome": "success"
+    },
+    {
+      "id": "sup-14",
+      "category": "supported",
+      "expected": "planned",
+      "status": "planned",
+      "steps": [
+        [
+          "inspect",
+          "table"
+        ],
+        [
+          "inspect",
+          "shelf"
+        ]
+      ],
+      "outcome": "success"
+    },
+    {
+      "id": "sup-15",
+      "category": "supported",
+      "expected": "planned",
+      "status": "planned",
+      "steps": [
+        [
+          "speak",
+          ""
+        ],
+        [
+          "navigate_to",
+          "table"
+        ]
+      ],
+      "outcome": "success"
+    },
+    {
+      "id": "amb-01",
+      "category": "ambiguous",
+      "expected": "clarification_needed",
+      "status": "clarification_needed",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "amb-02",
+      "category": "ambiguous",
+      "expected": "clarification_needed",
+      "status": "clarification_needed",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "amb-03",
+      "category": "ambiguous",
+      "expected": "clarification_needed",
+      "status": "clarification_needed",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "amb-04",
+      "category": "ambiguous",
+      "expected": "clarification_needed",
+      "status": "clarification_needed",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "amb-05",
+      "category": "ambiguous",
+      "expected": "clarification_needed",
+      "status": "clarification_needed",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "amb-06",
+      "category": "ambiguous",
+      "expected": "clarification_needed",
+      "status": "clarification_needed",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "off-01",
+      "category": "off_scene",
+      "expected": "clarification_needed",
+      "status": "clarification_needed",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "off-02",
+      "category": "off_scene",
+      "expected": "clarification_needed",
+      "status": "clarification_needed",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "off-03",
+      "category": "off_scene",
+      "expected": "clarification_needed",
+      "status": "clarification_needed",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "off-04",
+      "category": "off_scene",
+      "expected": "clarification_needed",
+      "status": "clarification_needed",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "par-01",
+      "category": "partial",
+      "expected": "clarification_needed",
+      "status": "clarification_needed",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "par-02",
+      "category": "partial",
+      "expected": "clarification_needed",
+      "status": "clarification_needed",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "uns-01",
+      "category": "unsupported",
+      "expected": "unsupported",
+      "status": "unsupported",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "uns-02",
+      "category": "unsupported",
+      "expected": "unsupported",
+      "status": "unsupported",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "uns-03",
+      "category": "unsupported",
+      "expected": "unsupported",
+      "status": "unsupported",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "uns-04",
+      "category": "unsupported",
+      "expected": "unsupported",
+      "status": "unsupported",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "uns-05",
+      "category": "unsupported",
+      "expected": "unsupported",
+      "status": "unsupported",
+      "steps": null,
+      "outcome": "correct_refusal"
+    },
+    {
+      "id": "man-01",
+      "category": "manipulation",
+      "expected": "planned",
+      "status": "planned",
+      "steps": [
+        [
+          "pickup",
+          "table"
+        ]
+      ],
+      "outcome": "success"
+    },
+    {
+      "id": "hin-01",
+      "category": "multilingual",
+      "expected": "planned",
+      "status": "unsupported",
+      "steps": null,
+      "outcome": "abstained"
+    },
+    {
+      "id": "hin-02",
+      "category": "multilingual",
+      "expected": "planned",
+      "status": "unsupported",
+      "steps": null,
+      "outcome": "abstained"
+    },
+    {
+      "id": "hin-03",
+      "category": "multilingual",
+      "expected": "planned",
+      "status": "unsupported",
+      "steps": null,
+      "outcome": "abstained"
+    },
+    {
+      "id": "hin-04",
+      "category": "multilingual",
+      "expected": "clarification_needed",
+      "status": "unsupported",
+      "steps": null,
+      "outcome": "refused_differently"
+    },
+    {
+      "id": "hin-05",
+      "category": "multilingual",
+      "expected": "unsupported",
+      "status": "unsupported",
+      "steps": null,
+      "outcome": "correct_refusal"
+    }
+  ],
+  "python": "3.11.9",
+  "recorded_at": "2026-09-18T10:34:51+00:00",
+  "command": "python scripts/evaluate_intents.py"
+}

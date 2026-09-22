@@ -162,16 +162,10 @@ dmypy.json
 # Exported model artifacts
 /models/
 
-data/
+/data/
 
 # Dashboard
 node_modules/
-
-# Unity
-twin/unity_project/Library/
-twin/unity_project/Temp/
-twin/unity_project/Logs/
-twin/unity_project/Assets/Generated/
 
 # Android
 capture/android/.gradle/
@@ -195,3 +189,7 @@ MOBILE-APP/**/build/
 MOBILE-APP/.cxx/
 MOBILE-APP/.externalNativeBuild/
 *.iml
+
+# Rover firmware: WiFi credentials (copy secrets.example.h) and the arduino-cli build folder
+firmware/scanborn_rover/secrets.h
+firmware/scanborn_rover/build/

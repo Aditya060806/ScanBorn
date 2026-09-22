@@ -1,101 +1,61 @@
+"""Groq transport and the strict judgement of its replies.
+
+The endpoint is a stand-in (tests/conftest.py forbids real network): `httpx.stream` is swapped for
+a recorder that returns a canned chat completion. A reply is judged whole by contract.py — the
+old behaviour of dropping a hallucinated node and driving the rest is gone.
+"""
 import json
 
 import httpx
 import pytest
 
-from sarvam.task_engine.groq_provider import DEFAULT_MODEL, GroqPlanner, groq_chat
+from sarvam.task_engine.execution import ProviderError
+from sarvam.task_engine.groq_provider import DEFAULT_MODEL, GroqPlanner, groq_chat, groq_request
 
 
-class FakeResponse:
-    def __init__(self, content):
-        self._content = content
+class FakeStream:
+    def __init__(self, status: int, payload: bytes, headers=None):
+        self.status_code, self.payload, self.headers = status, payload, headers or {}
 
-    def raise_for_status(self):
-        return None
+    def __enter__(self):
+        return self
 
-    def json(self):
-        return {"choices": [{"message": {"content": self._content}}]}
+    def __exit__(self, *exc):
+        return False
+
+    def iter_bytes(self):
+        for start in range(0, len(self.payload), 1024):
+            yield self.payload[start:start + 1024]
 
 
-def capture(monkeypatch, content='{"nodes": []}'):
-    """Swap httpx.post for a recorder; returns the dict the call was made with."""
+def completion(content, model="served-model", usage=None) -> bytes:
+    doc: dict = {"model": model, "choices": [{"message": {"content": content}}]}
+    if usage is not None:
+        doc["usage"] = usage
+    return json.dumps(doc).encode()
+
+
+def endpoint(monkeypatch, content='{"nodes": []}', status=200, payload=None, headers=None,
+             **reply):
+    """Swap httpx.stream for a recorder; returns the dict the call was made with."""
     seen: dict = {}
+    body = payload if payload is not None else completion(content, **reply)
+    response_headers = headers
 
-    def fake_post(url, headers=None, json=None, timeout=None):
-        seen.update(url=url, headers=headers, body=json, timeout=timeout)
-        return FakeResponse(content)
+    def fake_stream(method, url, headers=None, json=None, timeout=None):
+        seen.update(method=method, url=url, headers=headers, body=json, timeout=timeout)
+        return FakeStream(status, body, response_headers)
 
-    monkeypatch.setattr(httpx, "post", fake_post)
+    monkeypatch.setattr(httpx, "stream", fake_stream)
     return seen
 
 
-# ------------------------------------------------------------------------------ parse only
-
-def test_parse_builds_sequential_nodes_and_edges():
-    reply = json.dumps({"nodes": [
-        {"action": "navigate_to", "target": "table"},
-        {"action": "pickup", "target": "chair"},
-    ]})
-    graph = GroqPlanner.parse(reply)
-    assert [(n.action, n.target) for n in graph.nodes] == [
-        ("navigate_to", "table"), ("pickup", "chair")]
-    assert graph.edges == [(graph.nodes[0].id, graph.nodes[1].id)]
-
-
-def test_parse_drops_actions_outside_the_vocabulary():
-    reply = json.dumps({"nodes": [
-        {"action": "teleport", "target": "table"},
-        {"action": "wait", "target": ""},
-    ]})
-    assert [n.action for n in GroqPlanner.parse(reply).nodes] == ["wait"]
-
-
-def test_parse_drops_targets_that_are_not_in_the_scene():
-    reply = json.dumps({"nodes": [{"action": "pickup", "target": "sousaphone"}]})
-    assert GroqPlanner.parse(reply).nodes == []
-
-
-def test_parse_accepts_scene_objects_the_ontology_does_not_know():
-    reply = json.dumps({"nodes": [{"action": "pickup", "target": "sousaphone"}]})
-    graph = GroqPlanner.parse(reply, objects=["sousaphone"])
-    assert [n.target for n in graph.nodes] == ["sousaphone"]
-
-
-def test_parse_keeps_the_good_nodes_when_one_is_bad():
-    """Three good steps and one hallucination should still move the robot three steps."""
-    reply = json.dumps({"nodes": [
-        {"action": "navigate_to", "target": "table"},
-        {"action": "fly", "target": "table"},
-        {"action": "place", "target": "table"},
-    ]})
-    graph = GroqPlanner.parse(reply)
-    assert [n.action for n in graph.nodes] == ["navigate_to", "place"]
-    # Ids stay contiguous after a drop, so the edge chain is still valid.
-    assert [n.id for n in graph.nodes] == ["n0", "n1"]
-    assert graph.edges == [("n0", "n1")]
-
-
-def test_parse_is_case_insensitive_about_targets():
-    reply = json.dumps({"nodes": [{"action": "pickup", "target": "TABLE"}]})
-    assert GroqPlanner.parse(reply).nodes[0].target == "table"
-
-
-@pytest.mark.parametrize("reply", ['{"nodes": []}', '{}', '{"nodes": [null, 3]}'])
-def test_parse_tolerates_empty_and_junk_node_lists(reply):
-    assert GroqPlanner.parse(reply).nodes == []
-
-
-def test_parse_raises_on_content_that_is_not_json():
-    with pytest.raises(ValueError):
-        GroqPlanner.parse("here is your plan!")
-
-
-# ------------------------------------------------------------------------- request shaping
+# ------------------------------------------------------------------------ request shaping
 
 def test_request_is_deterministic_and_asks_for_json(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "gsk-test")
-    monkeypatch.delenv("GROQ_MODEL", raising=False)
-    seen = capture(monkeypatch)
+    seen = endpoint(monkeypatch, content=json.dumps(
+        {"nodes": [{"action": "navigate_to", "target": "pallet"}]}))
 
     GroqPlanner(["pallet"]).plan("go to the pallet")
 
@@ -108,37 +68,115 @@ def test_request_is_deterministic_and_asks_for_json(monkeypatch):
 def test_model_is_overridable_by_environment(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "gsk-test")
     monkeypatch.setenv("GROQ_MODEL", "qwen-2.5-32b")
-    seen = capture(monkeypatch)
-
+    seen = endpoint(monkeypatch)
     groq_chat("system", "user")
     assert seen["body"]["model"] == "qwen-2.5-32b"
 
 
 def test_the_scene_objects_reach_the_prompt(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "gsk-test")
-    seen = capture(monkeypatch)
-
+    seen = endpoint(monkeypatch, content=json.dumps(
+        {"nodes": [{"action": "pickup", "target": "sousaphone"}]}))
     GroqPlanner(["sousaphone"]).plan("grab it")
     system = seen["body"]["messages"][0]["content"]
-    assert "sousaphone" in system
-    assert "navigate_to" in system
+    assert "sousaphone" in system and "navigate_to" in system
 
+
+def test_the_reply_carries_the_serving_model_and_reported_usage(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-test")
+    endpoint(monkeypatch, usage={"prompt_tokens": 90, "completion_tokens": 12})
+    reply = groq_request("system", "user", timeout=5)
+    assert reply.model == "served-model"
+    assert reply.usage == {"prompt_tokens": 90, "completion_tokens": 12}
+
+
+def test_no_key_raises_before_any_network_call(monkeypatch):
+    def explode(*a, **k):
+        raise AssertionError("httpx.stream must not be reached without a key")
+
+    monkeypatch.setattr(httpx, "stream", explode)
+    with pytest.raises(ProviderError, match="GROQ_API_KEY") as excinfo:
+        groq_chat("system", "user")
+    assert excinfo.value.outcome == "missing_credentials"
+
+
+# ------------------------------------------------------------------------ transport outcomes
+
+@pytest.mark.parametrize("status,outcome", [(429, "rate_limited"), (503, "unavailable"),
+                                            (500, "server_error"), (502, "server_error"),
+                                            (401, "unauthorized"), (400, "rejected")])
+def test_http_errors_are_classified(monkeypatch, status, outcome):
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-test")
+    endpoint(monkeypatch, status=status, payload=b"{}", headers={"retry-after": "2"})
+    with pytest.raises(ProviderError) as excinfo:
+        groq_request("system", "user", timeout=5)
+    assert excinfo.value.outcome == outcome and excinfo.value.http_status == status
+    if status in (429, 503):
+        assert excinfo.value.retry_after_s == 2.0
+
+
+@pytest.mark.parametrize("error,outcome", [
+    (httpx.ConnectError("refused"), "unreachable"),
+    (httpx.ConnectTimeout("slow connect"), "unreachable"),
+    (httpx.ReadTimeout("slow body"), "timeout"),
+    (httpx.RemoteProtocolError("reset"), "transport_error"),
+])
+def test_transport_failures_are_classified(monkeypatch, error, outcome):
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-test")
+
+    def fail(*a, **k):
+        raise error
+
+    monkeypatch.setattr(httpx, "stream", fail)
+    with pytest.raises(ProviderError) as excinfo:
+        groq_request("system", "user", timeout=5)
+    assert excinfo.value.outcome == outcome
+
+
+def test_an_oversized_reply_is_refused_while_streaming(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-test")
+    endpoint(monkeypatch, payload=b"x" * 5000)
+    with pytest.raises(ProviderError) as excinfo:
+        groq_request("system", "user", timeout=5, max_bytes=4096)
+    assert excinfo.value.outcome == "oversized_reply"
+
+
+@pytest.mark.parametrize("payload", [b"not json", b'{"choices": []}', b'{"model": "m"}'])
+def test_a_reply_that_is_not_a_chat_completion_is_invalid(monkeypatch, payload):
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-test")
+    endpoint(monkeypatch, payload=payload)
+    with pytest.raises(ProviderError) as excinfo:
+        groq_request("system", "user", timeout=5)
+    assert excinfo.value.outcome == "invalid_reply"
+
+
+# ------------------------------------------------------------------------ strict judgement
 
 def test_plan_end_to_end_against_a_stubbed_endpoint(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "gsk-test")
-    capture(monkeypatch, content=json.dumps(
-        {"nodes": [{"action": "navigate_to", "target": "shelf"}]}))
-
+    shelf = {"nodes": [{"action": "navigate_to", "target": "shelf"}]}
+    endpoint(monkeypatch, content=json.dumps(shelf))
     graph = GroqPlanner().plan("go to the shelf")
     assert [(n.action, n.target) for n in graph.nodes] == [("navigate_to", "shelf")]
 
 
-def test_no_key_raises_before_any_network_call(monkeypatch):
-    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+@pytest.mark.parametrize("nodes", [
+    [{"action": "navigate_to", "target": "table"}, {"action": "fly", "target": "table"}],
+    [{"action": "navigate_to", "target": "sousaphone"}],
+    [{"action": "wait", "target": "", "params": {"seconds": -3}}],
+    [{"action": "wait", "target": "", "params": {"seconds": float("inf")}}],
+    [{"action": "navigate_to", "target": "table", "params": {"speed": 9}}],
+])
+def test_one_bad_step_refuses_the_whole_reply(monkeypatch, nodes):
+    """It used to keep the good steps and drive them: a different mission than was asked for."""
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-test")
+    endpoint(monkeypatch, content=json.dumps({"nodes": nodes}))
+    with pytest.raises(ProviderError) as excinfo:
+        GroqPlanner(["table"]).plan("do the thing")
+    assert excinfo.value.outcome == "failed"
 
-    def explode(*a, **k):
-        raise AssertionError("httpx.post must not be reached without a key")
 
-    monkeypatch.setattr(httpx, "post", explode)
-    with pytest.raises(RuntimeError, match="GROQ_API_KEY"):
-        groq_chat("system", "user")
+def test_targets_are_matched_case_insensitively(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "gsk-test")
+    endpoint(monkeypatch, content=json.dumps({"nodes": [{"action": "pickup", "target": "TABLE"}]}))
+    assert GroqPlanner(["table"]).plan("pick up the table").nodes[0].target == "table"

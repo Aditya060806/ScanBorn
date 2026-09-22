@@ -1,8 +1,15 @@
+import numpy as np
 import pytest
 
+from policy.controller import K_V, K_W
+from policy.finetune.train_bc import LinearPolicy
+from policy.planning import plan_mission
+from policy.sim import Noise
+from robot.adapters.base import ScanBornRobot
 from robot.adapters.registry import get_robot
+from robot.policy_runner import run_policy
+from robot.spec import load_spec
 from robot.adapters.sim import SimRobot
-from robot.adapters.unoq import UnoQRobot
 
 # 4x4 m room, 0.1 m cells, with a blob blocked around (2.0, 2.0)
 NAVMESH = {
@@ -38,14 +45,55 @@ def test_sim_robot_without_a_navmesh_moves_freely():
     assert robot.move(99.0, 99.0) is True
 
 
-def test_unoq_reports_failure_instead_of_raising_without_hardware():
-    robot = UnoQRobot(port="/dev/definitely-not-a-real-port")
-    assert robot.connect() is False
-    assert robot.move(1.0, 1.0) is False  # no link -> command refused, not silently lost
-
-
 def test_registry_builds_adapters():
     assert isinstance(get_robot("sim"), SimRobot)
-    assert isinstance(get_robot("unoq"), UnoQRobot)
-    with pytest.raises(ValueError, match="unknown robot kind"):
-        get_robot("mecha-godzilla")
+    for kind in ("mecha-godzilla", "unoq"):  # the UNO Q adapter was removed in Phase 7
+        with pytest.raises(ValueError, match="unknown robot kind"):
+            get_robot(kind)
+
+
+class WaypointOnlyRobot(ScanBornRobot):
+    """A robot that takes waypoints but no velocity commands."""
+
+    def move(self, x, y, theta=0.0):
+        return True
+
+    def capture_frame(self) -> bytes:
+        return b""
+
+    def get_pose(self) -> tuple:
+        return (0.0, 0.0, 0.0)
+
+
+SPEC = load_spec("rover")
+GOOD = LinearPolicy(np.diag([K_V, K_W]), np.zeros(2))
+
+
+def test_the_sim_robot_drives_a_mission_to_its_goal_under_noise():
+    mission = plan_mission(NAVMESH, (0.5, 0.5, 0.0), (2.9, 1.0))  # ~2.5 m, within dead reckoning
+    robot = SimRobot(NAVMESH, spec=SPEC, noise=Noise.from_spec(SPEC), seed=2)
+    result = run_policy(robot, GOOD, mission["goal"], mission["start"], mission["path"], SPEC)
+    assert result["reached"] is True, result.get("error")
+    assert result["trace"][0] == pytest.approx([0.5, 0.5], abs=0.03)
+    assert result["ticks"] > 0 and result["compute_unit"] == "cpu"
+    assert robot.get_pose() == robot.true_pose
+
+
+def test_the_sim_robot_stops_at_a_wall():
+    robot = SimRobot(NAVMESH, spec=SPEC)
+    # A route straight through the blocked blob around (2.0, 2.0).
+    route = [(1.0 + i / 10, 2.05) for i in range(21)]
+    result = run_policy(robot, GOOD, route[-1], (1.0, 2.05, 0.0), route, SPEC)
+    assert result["reached"] is False and result["error"] == "the robot collided"
+    assert max(x for x, _ in result["trace"]) < 1.8
+
+
+def test_a_robot_without_velocity_control_is_refused_with_a_reason():
+    result = run_policy(WaypointOnlyRobot(), GOOD, (1.0, 1.0),
+                        (0.0, 0.0, 0.0), [(0.0, 0.0), (1.0, 1.0)], SPEC)
+    assert result["reached"] is False and "velocity" in result["error"]
+
+
+def test_a_sim_robot_without_a_spec_cannot_take_velocity_commands():
+    with pytest.raises(RuntimeError, match="spec"):
+        SimRobot(NAVMESH).reset((0.5, 0.5, 0.0))

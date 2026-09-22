@@ -2,9 +2,9 @@ import React, { useEffect, useState } from "react";
 
 const PIPELINE_SECTIONS = [
   { id: "stage-recon", num: "01", label: "Recon & Scan" },
-  { id: "stage-pipeline", num: "02-06", label: "Pipeline" },
-  { id: "stage-nlp", num: "07", label: "NLP Planner" },
-  { id: "stage-silicon", num: "08", label: "Silicon Tiers" },
+  { id: "stage-pipeline", num: "02", label: "Nine calls" },
+  { id: "stage-nlp", num: "03", label: "Planner" },
+  { id: "stage-silicon", num: "04", label: "Hardware" },
   { id: "stage-action", num: "RUN", label: "Launch Console" },
 ];
 

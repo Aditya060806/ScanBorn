@@ -1,97 +1,86 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code in this repository.
 
-## Project
+## Start here
 
-ScanBorn is an edge-first Physical AI pipeline: point a phone at a space and get a
-simulation-ready digital twin, a robot taught by voice, and a policy that runs offline on
-Snapdragon silicon. The full loop is **capture → reconstruct → semantic-label → generate
-twin → adapt policy → edge-optimize → deploy**, exposed as one REST API (orchestrator) and
-one Python SDK. Built for the Snapdragon Multiverse Hackathon (Noida, July 2026). See
-`detailed implementation doc.md` for the full system design blueprint (architecture, API
-spec, DB schema, judging-criteria mapping) — read it before making architectural decisions.
+**Read `docs/superpowers/START-HERE.md` first.** It holds what is built and measured, every open
+item, how the owner works, the environment traps on this Windows machine, and the next step. The
+master plan is `docs/superpowers/plans/2026-09-13-scanborn-scan-to-drive-plan.md`; each phase has its
+own plan in `docs/superpowers/plans/`, written from the code before the phase is built. Where this
+file and START-HERE disagree, START-HERE wins.
 
-**Current state: this is a scaffold.** Nearly every module is a stub (e.g.
-`semantic/service/inference.py:segment_image` returns `{"labels": [], "masks": []}`;
-`reconstruction/fidelity_path/pipeline.py` returns a hardcoded status dict; robot adapters'
-`move()` is a no-op). Don't assume existing functions have real implementations behind
-them — check before building on top of one.
+## The project
+
+A Galaxy S24 FE scans a room → the laptop builds a twin (a free / blocked / unknown grid sized for
+the robot) → the operator picks a start and a goal → the rover's controller is trained in a
+simulation of the rover and must pass a gate → only a passing int8 policy drives an ESP32
+two-wheel rover, which runs the control loop itself. The phone also runs Qwen2.5-1.5B on its CPU
+for chat, voice, OCR and PDF summaries.
+
+The July 2026 hackathon version (Snapdragon, Unity ML-Agents, UNO Q, NPU) is history:
+`detailed implementation doc.md` describes it and is not the design.
+
+## Rules that are not in the code
+
+- **Honesty.** Only measured numbers, each with how it was measured; fixtures labelled; unmeasured
+  things say so. No NPU, Snapdragon, Unity or RL claims — the phone is Exynos, everything runs on
+  CPUs.
+- **Public repository.** Commit or push only when the owner asks. Never print or stage `.env`
+  values.
+- **The phone is the owner's daily device.** Check `dumpsys window | grep mCurrentFocus` before any
+  `adb` input; never drive another app; ask the owner to do on-phone steps.
+- Ask before downloads.
+
+## Layout
+
+| Directory | What |
+|---|---|
+| `orchestrator/` | FastAPI app (`service.py`, CRLF — patch it with a script that keeps CRLF), SQLite store with migrations (`db.py`), jobs, rover deployment sessions (`deployments.py`) |
+| `capture/` | scan storage (`service/store.py`), Scaniverse import. `capture/android/` is the old capture app, deleted once the Phase 5 phone session passes |
+| `reconstruction/` | depth-frame fusion (`fast_path/`), floor estimate |
+| `semantic/service/inference.py` | geometric segmentation |
+| `twin/` | navmesh grid, environment profiles, scene manifest |
+| `policy/` | route planning, diff-drive simulation, controller, behaviour cloning, evaluation gates |
+| `robot/` | rover spec (`specs/rover.yaml`), rover protocol, adapters (`sim`, `rover`), fake rover |
+| `sarvam/task_engine/` | text → task graph: offline `KeywordPlanner`, optional Groq / Sarvam planners, environment profiler |
+| `deployment/` | int8 export; optional Qualcomm AI Hub path |
+| `sdk/scanborn/` | Python client for every route |
+| `dashboard/` | React + Vite landing page and operator console |
+| `MOBILE-APP/` | Android app (Kotlin, Compose, ARCore, vendored llama.cpp) |
+| `firmware/scanborn_rover/` | ESP32 rover firmware |
+| `scripts/` | fixture recording, OpenAPI export, benchmarks, browser and scan checks |
+| `docs/` | OpenAPI, rover protocol, capture marker, hardware notes, plans |
+| `experiments/` | the hackathon's Snapdragon RC-buggy experiment, not part of the pipeline |
 
 ## Commands
 
 ```bash
-make install       # pip install -e . + requirements.txt
-make install-dev   # + requirements-dev.txt + pre-commit install
-make lint          # flake8 + mypy over sdk/ orchestrator/ capture/ reconstruction/ semantic/ robot/ sarvam/ tests/
-make format        # black + isort over the same tree
-make test          # pytest (repo root, uses pyproject.toml addopts)
-make coverage      # pytest --cov-report=term-missing --cov-report=html
+python -m pip install -e . -r requirements-dev.txt
+python -m uvicorn orchestrator.service:app --port 8000        # --host 0.0.0.0 for the phone or a rover
+cd dashboard; npm install; npm run dev                         # :5173, console at /dashboard
+
+python -m pytest -q -o addopts=""                              # full suite takes minutes
+python -m pytest tests/test_missions.py::test_name -q -o addopts=""
+python -m flake8 sdk orchestrator capture reconstruction semantic robot sarvam twin policy deployment tests scripts noxfile.py
+python -m mypy sdk orchestrator capture reconstruction semantic robot sarvam twin policy deployment tests
+cd dashboard; npm test; npm run build
 ```
 
-Run a single test: `pytest tests/test_main.py::TestMain::test_main`
+After changing a route: `python scripts/export_openapi.py`. After changing a response shape:
+`python scripts/record_dashboard_fixture.py`, then `npm test`. After changing the controller, policy
+format or rover spec: `python scripts/gen_rover_golden.py`. Firmware, emulator, Android and browser
+checks, with the environment variables they need, are in START-HERE §8 and §10. There is no `make`
+on this machine; `noxfile.py` has the same tasks.
 
-Run one service locally: `uvicorn orchestrator.service:app --reload --port 8000`
-(also `capture.service.app:app`, `semantic.service.app:app`).
+## Environment variables
 
-Full stack: `docker compose -f docker/docker-compose.yml up --build` (orchestrator:8000,
-capture:8001, semantic:8002).
-
-Dashboard (React/Vite, `dashboard/`): `npm install && npm run dev`.
-
-## Known inconsistencies (don't "fix" without checking with the user first)
-
-- `pyproject.toml` packages from `sdk/` (the real source tree); `setup.cfg` and
-  `.github/workflows/ci.yml` reference a `src/` tree and `main.py`/`__main__.py` that don't
-  exist anywhere in the repo. `tests/test_main.py` imports `scanborn.__main__`, which is
-  also missing. Treat `setup.cfg` and the CI workflow as stale/aspirational, not ground
-  truth, until reconciled.
-- `sdk/scanborn/__init__.py` is empty even though `client.py`'s `ScanBorn` class and
-  `README.md`'s usage example (`tf.capture()`, `tf.reconstruct()`, ...) imply it's the
-  package's public surface.
-
-## Architecture
-
-One Python package per pipeline stage, each independently deployable as a service/module.
-Directory names ARE the architecture:
-
-- `sdk/scanborn/` — pip-installable client (`ScanBorn` class in `client.py`); each method
-  (`capture`, `reconstruct`, `train`, `deploy`) is a thin wrapper that builds a URL string
-  against a FastAPI backend — no HTTP calls are actually wired up yet.
-- `orchestrator/` — pipeline state machine (`pipeline.py`: `PipelineState` enum
-  `CAPTURE → RECONSTRUCT → SEMANTIC → TWIN_GENERATE → DEPLOY`, `Pipeline.transition()`) and
-  the REST gateway (`service.py`, currently empty).
-- `capture/service/` — thin FastAPI receiver for chunked ARCore uploads from the Android
-  companion app (`capture/android/`, not yet present).
-- `reconstruction/fast_path/` — Open3D TSDF fusion (fast, lower fidelity).
-  `reconstruction/fidelity_path/` — COLMAP + gsplat/nerfstudio glue (slow, high fidelity).
-  Two paths are a deliberate tradeoff (speed vs. quality), not redundant code.
-- `semantic/service/` — YOLO-World + MobileSAM inference; `inference.py` holds the
-  `LABEL_ONTOLOGY` (wall, floor, door, chair, robot, ...) that `twin/rules/mapping.yaml`
-  maps to Unity prefabs + collider types.
-- `twin/rules/mapping.yaml` — label → prefab/collider mapping consumed by the (not yet
-  present) `twin/unity_project/` batch-mode generator.
-- `robot/adapters/` — `ScanBornRobot` ABC (`base.py`) with `SimRobot` and `UnoQRobot`
-  implementations; this is the seam for swapping simulated vs. physical robot backends.
-- `sarvam/task_engine/` — `TaskProvider` ABC for NL→task-graph planning; `fallback.py`'s
-  `FunctionGemma` is the on-device fallback used when `SARVAM_API_KEY` is unset (online
-  Sarvam provider not yet implemented).
-- `policy/finetune/` — behaviour-cloning fine-tune scripts; `policy/baselines/` holds
-  pretrained checkpoints (gitignored, pulled separately).
-- `deployment/aihub_export/` and `deployment/qairt/` — two export paths for getting a
-  trained policy onto Snapdragon/Hexagon NPU hardware (Qualcomm AI Hub API vs. local QAIRT
-  conversion fallback).
-- `configs/default.yaml` — single source of default config for every stage (capture
-  resolution/chunk size, reconstruction method/voxel size, semantic model/confidence
-  threshold, twin export format, default robot adapter).
-- `examples/{warehouse,factory,hospital,museum}/scenario.yaml` — demo scenario configs.
-
-Services talk over plain HTTP URLs configured via env vars (see `docker-compose.yml`:
-`CAPTURE_URL`, `SEMANTIC_URL` on the orchestrator container) — there is no message queue or
-shared DB wired up yet.
-
-## Env vars
-
-Copy `.env.example` to `.env`. Both are optional for install/test; needed only for live runs
-against real models: `AI_HUB_API_TOKEN` (Qualcomm AI Hub export/quantization),
-`SARVAM_API_KEY` (online task planning; falls back to on-device FunctionGemma if unset).
+All optional (`.env.example`): `SCANBORN_DATA`, `SCANBORN_DB`, `SCANBORN_TELEMETRY_PORT` (rover
+telemetry, UDP 5005), `ORCHESTRATOR_URL` (the dashboard dev server's API proxy). Provider selection
+is explicit and local by default — `SCANBORN_PLANNER` (chain of `local`/`groq`/`sarvam`, e.g.
+`groq,local`), `SCANBORN_PROFILER` (chain of `local`/`groq`), `SCANBORN_EXPORT` (one of
+`local`/`ai-hub`/`qairt`), plus `SCANBORN_PROVIDER_*` limits and `SCANBORN_REMOTE_DAILY_LIMIT`. A key
+(`GROQ_API_KEY`, `SARVAM_API_KEY`, `AI_HUB_API_TOKEN`) never selects a provider on its own, and an
+unknown name is refused before work. `orchestrator/providers.py` owns selection and limits;
+`sarvam/task_engine/contract.py` is the one output contract; `execution.py` runs chains;
+`intent_eval.py` + `datasets/intents/` score planners (`python scripts/evaluate_intents.py`).

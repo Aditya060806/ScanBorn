@@ -178,7 +178,7 @@ the far end, with a single teal in the middle for what has been identified.
 - **Survey Teal** (`#14b09a`): **Graphics only.** Labelled clusters in the point cloud and
   plan-view object fills — the mid-depth band.
 - **Survey Teal Ink** (`#06584e`): The text-safe counterpart, at 7.28:1. "Orchestrator
-  online", completed jobs, passing gates, NPU-resident workloads.
+  online", completed jobs, passing gates, measured values.
 
 ### Tertiary
 - **Alert Red** (`#c0331c`): Failure only. Refused stages, compile errors, failed jobs.

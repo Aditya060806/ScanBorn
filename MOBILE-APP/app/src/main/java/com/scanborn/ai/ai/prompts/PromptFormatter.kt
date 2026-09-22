@@ -33,12 +33,12 @@ object PromptFormatter {
      * @param newInput the new user message to respond to
      * @return formatted prompt string ready for llama.cpp
      */
-    fun buildPrompt(history: List<ChatMessage>, newInput: String): String {
+    fun buildPrompt(history: List<ChatMessage>, newInput: String, systemPrompt: String? = null): String {
         val sb = StringBuilder()
 
         // System message — sets the AI's personality
         sb.append("<|im_start|>system\n")
-        sb.append(SYSTEM_PROMPT)
+        sb.append(systemPrompt ?: SYSTEM_PROMPT)
         sb.append("<|im_end|>\n")
 
         // Chat history — last N messages to fit in context window

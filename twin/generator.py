@@ -1,39 +1,42 @@
-"""Semantic objects -> Unity scene manifest + navmesh occupancy grid.
+"""Semantic objects -> scene manifest (scene.json) + navmesh occupancy grid (navmesh.json).
 
-Rule-based, per blueprint section 8: label -> prefab + primitive collider sized from the
-object's bounding box. No per-vertex mesh colliders, no inferred lighting.
+Rule-based: label -> prefab name + primitive collider sized from the object's bounding box
+(twin/rules/mapping.yaml). No per-vertex mesh colliders, no inferred lighting. The occupancy grid
+itself is built in twin/navmesh.py.
 
-Frames (section 10): input objects are in the robot/map frame (right-handed, Z up, metres).
-Unity is left-handed Y-up, so the scene manifest carries a single fixed conversion matrix
-applied once here rather than per-frame downstream.
+Nothing in this repository imports scene.json: the planner, the simulator and the dashboard use
+navmesh.json and the objects table. The manifest is kept as an export for a game engine. Its
+prefab and collider names use Unity's vocabulary, and positions are converted once, here, from
+the map frame (right-handed, Z up, metres) to the Y-up left-handed frame such an importer expects;
+`unity_from_world` records that transform.
 """
 import json
 import os
 
 import yaml
 
+from twin.navmesh import (  # noqa: F401 - re-exported for callers that predate twin/navmesh.py
+    FLOOR_CLEARANCE,
+    ROBOT_HEIGHT,
+    WALKABLE_LABELS,
+    build_navmesh,
+    choose_cell,
+    is_blocked,
+    nearest_free,
+)
 from twin.profile import profile_for
 
 RULES_PATH = os.path.join(os.path.dirname(__file__), "rules", "mapping.yaml")
 DEFAULT_RULE = {"prefab": "Props/Generic", "collider": "BoxCollider"}
 
 # (x, y, z) Z-up right-handed -> (x, z, y) Y-up left-handed. Swapping two axes is what
-# flips the handedness; see section 10.
+# flips the handedness.
 UNITY_FROM_WORLD = [
     [1, 0, 0, 0],
     [0, 0, 1, 0],
     [0, 1, 0, 0],
     [0, 0, 0, 1],
 ]
-
-# Structure, not furniture: these never block the ground plane the robot drives on.
-WALKABLE_LABELS = {"floor", "ceiling"}
-
-# Height band a ground robot actually sweeps. Points below FLOOR_CLEARANCE are the floor
-# itself (and scan noise on it); points above ROBOT_HEIGHT pass over the robot's head, so
-# a ceiling or a high shelf must not block the ground plane.
-FLOOR_CLEARANCE = 0.08
-ROBOT_HEIGHT = 1.0
 
 
 def load_rules(path: str = RULES_PATH) -> dict:
@@ -65,101 +68,15 @@ def _scene_object(obj: dict, rules: dict) -> dict:
     }
 
 
-def _navmesh(objects: list, cell: float, points=None, profile=None) -> dict:
-    """2D occupancy grid over the floor.
-
-    Occupancy comes from the point cloud when it is available, and only from bounding
-    boxes when it is not. A bounding box is a solid block, so anything concave — a room
-    shell, a ring of walls, a U-shaped desk — fills its whole interior when rasterized
-    that way, and a room that segments as one connected shell comes out entirely
-    blocked. Points carry the concavity that a bbox throws away, so the walls block and
-    the floor between them stays open.
-
-    `profile` decides how tall a band counts as an obstacle, because that is a fact about
-    the robot rather than the room: a low delivery bot passes under a shelf that would stop
-    a forklift. The profile is written into the returned dict so the planner can inflate by
-    the same robot's radius without being told about it separately.
-    """
-    resolved = profile if profile is not None else profile_for(None)
-    sweep_height = resolved.robot_height
-
-    floors = [o for o in objects if o["label"] in WALKABLE_LABELS]
-    extent = floors or objects
-    if not extent:
-        return {"origin": [0, 0], "cell": cell, "width": 0, "height": 0, "grid": [],
-                "profile": resolved.as_dict()}
-
-    xmin = min(o["bbox3d"][0] for o in extent)
-    ymin = min(o["bbox3d"][1] for o in extent)
-    xmax = max(o["bbox3d"][3] for o in extent)
-    ymax = max(o["bbox3d"][4] for o in extent)
-    width = max(1, round((xmax - xmin) / cell))
-    height = max(1, round((ymax - ymin) / cell))
-    grid = [[0] * width for _ in range(height)]
-
-    def block(ox0, oy0, ox1, oy1):
-        # Any cell the footprint touches is blocked — round outwards, since a robot
-        # clipping the corner of a table is a real collision.
-        for row in range(max(0, int((oy0 - ymin) / cell)),
-                         min(height, int((oy1 - ymin) / cell) + 1)):
-            for col in range(max(0, int((ox0 - xmin) / cell)),
-                             min(width, int((ox1 - xmin) / cell) + 1)):
-                grid[row][col] = 1
-
-    if points is not None and len(points) > 0:
-        floor_z = min(o["bbox3d"][2] for o in extent)
-        for x, y, z in points:
-            if not (floor_z + FLOOR_CLEARANCE <= z <= floor_z + sweep_height):
-                continue
-            col, row = int((x - xmin) / cell), int((y - ymin) / cell)
-            if 0 <= col < width and 0 <= row < height:
-                grid[row][col] = 1
-    else:
-        for obj in objects:
-            if obj["label"] in WALKABLE_LABELS:
-                continue
-            ox0, oy0, _, ox1, oy1, _ = obj["bbox3d"]
-            block(ox0, oy0, ox1, oy1)
-
-    return {"origin": [xmin, ymin], "cell": cell,
-            "width": width, "height": height, "grid": grid,
-            "profile": resolved.as_dict()}
-
-
-def is_blocked(navmesh: dict, x: float, y: float) -> bool:
-    """True if (x, y) is untraversable — including anywhere outside the mapped floor."""
-    col = int((x - navmesh["origin"][0]) / navmesh["cell"])
-    row = int((y - navmesh["origin"][1]) / navmesh["cell"])
-    if not (0 <= col < navmesh["width"] and 0 <= row < navmesh["height"]):
-        return True
-    return bool(navmesh["grid"][row][col])
-
-
-def nearest_free(navmesh: dict, x: float, y: float):
-    """Closest traversable point to (x, y), or None if the navmesh is fully blocked.
-
-    Navigating "to the table" cannot mean the table's centre — that cell is occupied by
-    the table. It means the nearest spot a robot can actually stand.
-    """
-    cell, (x0, y0) = navmesh["cell"], navmesh["origin"]
-    best, best_d2 = None, None
-    for row in range(navmesh["height"]):
-        for col in range(navmesh["width"]):
-            if navmesh["grid"][row][col]:
-                continue
-            cx, cy = x0 + (col + 0.5) * cell, y0 + (row + 0.5) * cell
-            d2 = (cx - x) ** 2 + (cy - y) ** 2
-            if best_d2 is None or d2 < best_d2:
-                best, best_d2 = (cx, cy), d2
-    return best
-
-
-def generate_twin(objects: list, out_dir: str, cell: float = 0.1, points=None,
+def generate_twin(objects: list, out_dir: str, cell: float | None = None, points=None,
                   profile=None) -> dict:
-    """Write scene.json + navmesh.json for the Unity batch-mode generator.
+    """Write scene.json (the manifest above) and navmesh.json.
 
     `points` is the reconstructed cloud; pass it whenever it is on hand, so the navmesh
     is built from measured geometry rather than from bounding boxes.
+
+    `cell` is the grid size in metres. Omit it and the scan's own density picks 5 or 10 cm
+    (twin/navmesh.py:choose_cell); the choice and its evidence are recorded as `resolution`.
 
     `profile` is an EnvironmentProfile (twin/profile.py). Omit it and the twin is built for
     the generic robot, which is exactly the behaviour that existed before profiles — so the
@@ -178,9 +95,18 @@ def generate_twin(objects: list, out_dir: str, cell: float = 0.1, points=None,
     with open(scene_path, "w") as f:
         json.dump(scene, f, indent=2)
 
+    if cell is None:
+        cell, evidence = choose_cell(objects, points)
+        resolution = {"cell_m": cell, "chosen": "auto", **evidence}
+    else:
+        resolution = {"cell_m": cell, "chosen": "requested"}
+    navmesh = build_navmesh(objects, cell, points, resolved)
+    navmesh["resolution"] = resolution
     navmesh_path = os.path.join(out_dir, "navmesh.json")
     with open(navmesh_path, "w") as f:
-        json.dump(_navmesh(objects, cell, points, resolved), f)
+        json.dump(navmesh, f)
 
     return {"scene_path": scene_path, "navmesh_path": navmesh_path,
-            "object_count": len(objects), "profile": resolved.as_dict()}
+            "object_count": len(objects), "profile": resolved.as_dict(),
+            "floor_z": navmesh["floor_z"], "counts": navmesh["counts"],
+            "resolution": resolution}

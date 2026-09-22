@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 210 297">
+  <!--
+    ScanBorn home marker, A4. Print at 100 % (actual size, no "fit to page"), then check the
+    10 cm bar with a ruler. Tape it flat to the floor.
+
+    Scanning (Phase 5): stand over the cross, point the phone along the arrow, tap Start. The scan's
+    origin is the phone's position and +Y is the arrow, so the twin's home pose is [0, 0, 90°].
+    Driving (Phase 6): place the rover's centre on the cross with its nose along the arrow.
+  -->
+  <rect x="0" y="0" width="210" height="297" fill="#ffffff"/>
+  <g fill="none" stroke="#111111">
+    <rect x="12" y="12" width="186" height="273" stroke-width="0.4" stroke-dasharray="3 2"/>
+    <circle cx="105" cy="150" r="45" stroke-width="1.2"/>
+    <circle cx="105" cy="150" r="10" stroke-width="0.8"/>
+    <line x1="45" y1="150" x2="165" y2="150" stroke-width="0.8"/>
+    <line x1="105" y1="195" x2="105" y2="110" stroke-width="0.8"/>
+  </g>
+  <circle cx="105" cy="150" r="1.6" fill="#111111"/>
+  <!-- Forward: the arrow is the scan's +Y and the rover's heading. -->
+  <line x1="105" y1="110" x2="105" y2="50" stroke="#c0331c" stroke-width="3"/>
+  <polygon points="105,30 93,54 117,54" fill="#c0331c"/>
+  <g font-family="Arial, Helvetica, sans-serif" fill="#111111" text-anchor="middle">
+    <text x="105" y="24" font-size="7" font-weight="bold">FORWARD (+Y)</text>
+    <text x="105" y="214" font-size="8" font-weight="bold">SCANBORN HOME MARKER</text>
+    <text x="105" y="224" font-size="4.6">Scan: stand over the cross, point the phone along the arrow, tap Start.</text>
+    <text x="105" y="231" font-size="4.6">Drive: rover centre on the cross, nose along the arrow.</text>
+    <text x="105" y="238" font-size="4.6">Tape flat to the floor. Do not move it between the scan and the drive.</text>
+  </g>
+  <!-- 10 cm scale bar with 1 cm ticks: the print is only right if this measures 100 mm. -->
+  <g stroke="#111111" stroke-width="0.5">
+    <line x1="55" y1="262" x2="155" y2="262" stroke-width="0.8"/>
+    <line x1="55" y1="257" x2="55" y2="267"/>
+    <line x1="65" y1="259" x2="65" y2="265"/>
+    <line x1="75" y1="259" x2="75" y2="265"/>
+    <line x1="85" y1="259" x2="85" y2="265"/>
+    <line x1="95" y1="259" x2="95" y2="265"/>
+    <line x1="105" y1="257" x2="105" y2="267"/>
+    <line x1="115" y1="259" x2="115" y2="265"/>
+    <line x1="125" y1="259" x2="125" y2="265"/>
+    <line x1="135" y1="259" x2="135" y2="265"/>
+    <line x1="145" y1="259" x2="145" y2="265"/>
+    <line x1="155" y1="257" x2="155" y2="267"/>
+  </g>
+  <g font-family="Arial, Helvetica, sans-serif" fill="#111111" text-anchor="middle" font-size="4.2">
+    <text x="105" y="274">10 cm — measure it: printed at 100 % this bar is exactly 100 mm</text>
+  </g>
+</svg>

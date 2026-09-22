@@ -1,19 +1,26 @@
-"""Run a quantized policy on the robot, measuring the inference cost per control tick.
+"""Run a quantized policy on a robot, measuring the inference cost per control tick.
 
-This is the third silicon tier. The Arduino UNO Q's QRB2210 has a quad Cortex-A53, an
-Adreno 702 and a low-power Hexagon DSP — no tensor NPU — so this path deliberately claims
-CPU inference and nothing more. The point it proves is the opposite of "we used an NPU":
-an INT8 linear policy is small enough that an A53 closes the control loop with room to
-spare, which is why the heavy perception work belongs on the phone instead.
+The control law is policy/evaluate.py:drive — the same loop the gates run — so what is measured
+here is what was validated. The robot is anything with the velocity interface
+(robot/adapters/base.py): today the simulated rover; in Phase 4 the ESP32 rover runs the same law
+on its microcontroller and this runner becomes its fake. Adapters without velocity control are
+refused with a reason, never driven open-loop.
 
-The per-tick timing collected here is what makes that a measurement rather than a claim.
+The per-tick timing is a measurement on this computer's CPU, not a claim about any device.
 """
 import time
 
 import numpy as np
 
-from policy.evaluate import GOAL_TOLERANCE, _cap, _lookahead, inflate, plan_path
+from policy.evaluate import drive_outcome, path_length, time_limit_steps
 from policy.finetune.train_bc import LinearPolicy, dequantize_int8
+
+# What a failed drive means, in words an operator can act on.
+FAILURES = {
+    "stopped_off_goal": "stopped where its odometry put the goal, but drift had moved it",
+    "collided": "the robot collided",
+    "timeout": "ran out of time before reaching the goal",
+}
 
 
 def load_int8_policy(bundle_path: str) -> LinearPolicy:
@@ -25,44 +32,35 @@ def load_int8_policy(bundle_path: str) -> LinearPolicy:
         })
 
 
-def run_policy(robot, policy, navmesh: dict, goal, start=(0.0, 0.0),
-               max_steps: int = 200) -> dict:
-    """Drive `robot` toward `goal` under `policy`, timing every inference.
+def run_policy(robot, policy, goal, start, path, spec, max_steps: int | None = None) -> dict:
+    """Drive `robot` from `start` along `path` to `goal` under `policy`, timing every inference.
 
-    Returns the executed trace plus latency percentiles. Mirrors `policy.evaluate.rollout`
-    so sim and hardware follow the same control law — the only difference is that each
-    step is also commanded to a real chassis.
+    Returns `reached`, the `trace` of true positions, and latency percentiles.
     """
-    goal = np.asarray(goal, dtype=np.float64)
-    path = plan_path(inflate(navmesh), start, goal)
+    if not getattr(robot, "supports_drive", False):
+        return {"reached": False, "trace": [],
+                "error": "this robot adapter cannot take velocity commands"}
     if not path:
-        return {"reached": False, "error": "no path to goal", "trace": []}
+        return {"reached": False, "trace": [], "error": "no path to the goal"}
+    if not robot.reset(start):
+        return {"reached": False, "trace": [], "error": "the start pose is in collision"}
 
-    pos = np.asarray(start, dtype=np.float64)
-    index, latencies, trace = 0, [], [tuple(pos)]
-    reached = False
+    latencies: list = []
 
-    for _ in range(max_steps):
-        if np.linalg.norm(goal - pos) <= GOAL_TOLERANCE:
-            reached = True
-            break
+    def timed(obs):
+        began = time.perf_counter_ns()
+        action = policy.act(obs)
+        latencies.append((time.perf_counter_ns() - began) / 1e6)  # ms
+        return action
 
-        target, index = _lookahead(path, pos, index)
-
-        start_ns = time.perf_counter_ns()
-        action = policy.act(target - pos)
-        latencies.append((time.perf_counter_ns() - start_ns) / 1e6)  # ms
-
-        pos = pos + _cap(np.asarray(action, dtype=np.float64))
-        trace.append(tuple(pos))
-
-        # A refused waypoint means the MCU rejected it (e-stop, velocity cap) — stop
-        # rather than continuing to integrate a pose the chassis never reached.
-        if not robot.move(float(pos[0]), float(pos[1])):
-            return {"reached": False, "error": "robot refused waypoint",
-                    "trace": trace, **_latency_stats(latencies)}
-
-    return {"reached": reached, "trace": trace, **_latency_stats(latencies)}
+    trace: list = []
+    limit = max_steps or time_limit_steps(path_length(path), spec)
+    outcome = drive_outcome(timed, robot, path, (float(goal[0]), float(goal[1])), limit, trace)
+    result = {"reached": outcome == "reached", "outcome": outcome, "trace": trace,
+              **_latency_stats(latencies)}
+    if outcome in FAILURES:
+        result["error"] = FAILURES[outcome]
+    return result
 
 
 def _latency_stats(latencies: list) -> dict:
@@ -75,24 +73,28 @@ def _latency_stats(latencies: list) -> dict:
         "inference_p50_ms": round(float(np.percentile(arr, 50)), 4),
         "inference_p95_ms": round(float(np.percentile(arr, 95)), 4),
         "inference_max_ms": round(float(arr.max()), 4),
-        "compute_unit": "cpu",       # QRB2210 has no tensor NPU. Never claim one.
+        "compute_unit": "cpu",
         "precision": "int8",
     }
 
 
 def demo():
-    """Self-check: the int8 policy reaches the goal in sim and reports real timings."""
+    """Self-check: a demonstrator-gain policy drives the rover model across an open room."""
+    from policy.controller import K_V, K_W
+    from policy.planning import plan_mission
+    from policy.sim import Noise
     from robot.adapters.sim import SimRobot
+    from robot.spec import load_spec
 
+    spec = load_spec("rover")
     navmesh = {"origin": [-2.0, -2.0], "cell": 0.1, "width": 40, "height": 40,
                "grid": [[0] * 40 for _ in range(40)]}
-    policy = LinearPolicy(np.eye(2) * 0.5, np.zeros(2))
+    mission = plan_mission(navmesh, (-1.0, -1.0, 0.0), (1.0, 1.0))
+    policy = LinearPolicy(np.diag([K_V, K_W]), np.zeros(2))
+    robot = SimRobot(navmesh, spec=spec, noise=Noise.from_spec(spec), seed=1)
 
-    result = run_policy(SimRobot(navmesh), policy, navmesh, goal=(1.0, 1.0))
+    result = run_policy(robot, policy, mission["goal"], mission["start"], mission["path"], spec)
     assert result["reached"], result
-    assert result["ticks"] > 0
-    assert result["inference_p50_ms"] > 0
-    assert result["compute_unit"] == "cpu"
     print(f"reached in {result['ticks']} ticks, "
           f"p50={result['inference_p50_ms']}ms p95={result['inference_p95_ms']}ms")
 

@@ -38,7 +38,7 @@ interface LocalAIEngine {
      *                  Defaulted so every existing chat caller is unaffected.
      */
     fun generate(history: List<ChatMessage>, userInput: String,
-                 grammar: String = ""): Flow<String>
+                 grammar: String = "", systemPrompt: String? = null): Flow<String>
 
     /**
      * Stop the current generation immediately.

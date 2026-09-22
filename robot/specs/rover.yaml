@@ -1,0 +1,29 @@
+# The reference rover (plan §4.3). Every number here is a placeholder until Phase 6 measures it:
+# calibration overwrites the values and sets `source: calibrated`. The simulation, the export
+# manifest and the dashboard all read this file, so nothing else hardcodes the rover.
+name: reference-rover
+source: placeholder
+
+wheel_radius_m: 0.0325      # 65 mm wheels
+wheelbase_m: 0.17           # wheel centre to wheel centre on a ~20 cm chassis
+counts_per_rev: 660         # encoder counts per wheel revolution; read it off the motor, then measure
+footprint_radius_m: 0.15    # a 20 x 20 cm chassis has a 0.141 m half-diagonal
+height_m: 0.12
+step_height_m: 0.02         # the tallest floor edge it drives over
+
+v_max: 0.30                 # m/s — the demo speed cap (plan §8)
+w_max: 2.0                  # rad/s
+a_max: 0.5                  # m/s^2
+alpha_max: 4.0              # rad/s^2
+control_hz: 20              # policy rate; the motor PI loop on the ESP32 runs at 50 Hz
+
+# The rover has no position fix after it leaves the home marker, so its heading error at the start
+# and its gyro bias decide how far it misses a distant goal. These are the values the procedure in
+# the plan should achieve; the gate is only as trustworthy as they are.
+noise:
+  source: assumed           # not measured: Phase 6 replaces these with calibrated values
+  wheel_slip: 0.05          # 1-sigma fractional ground-speed error per wheel, per tick (hard floor)
+  gyro_bias_rad_s: 0.002    # 1-sigma residual bias after the 2 s still calibration (~0.1°/s)
+  latency_ticks: 1          # ticks between a command and the motors acting on it
+  start_xy_m: 0.01          # placement on the home marker, uniform ±
+  start_heading_rad: 0.0175 # ±1°: the rover's rear edge set against the marker's tape line

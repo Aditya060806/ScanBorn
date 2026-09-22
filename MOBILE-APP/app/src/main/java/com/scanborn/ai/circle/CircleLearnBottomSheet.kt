@@ -162,7 +162,7 @@ private fun ProcessingPanel() {
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Text("∞", fontSize = 28.sp, color = Color.White, fontWeight = FontWeight.Light)
+            Text("SB", fontSize = 28.sp, color = Color.White, fontWeight = FontWeight.Light)
         }
         Text("Reading your selection…", style = MaterialTheme.typography.titleMedium,
             color = Color.White, textAlign = TextAlign.Center)

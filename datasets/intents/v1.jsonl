@@ -1,0 +1,38 @@
+{"id": "sup-01", "category": "supported", "lang": "en", "text": "go to the table", "expected": {"status": "planned", "steps": [["navigate_to", "table"]]}}
+{"id": "sup-02", "category": "supported", "lang": "en", "text": "navigate to the shelf", "expected": {"status": "planned", "steps": [["navigate_to", "shelf"]]}}
+{"id": "sup-03", "category": "supported", "lang": "en", "text": "drive to the door", "expected": {"status": "planned", "steps": [["navigate_to", "door"]]}}
+{"id": "sup-04", "category": "supported", "lang": "en", "text": "head to the table", "expected": {"status": "planned", "steps": [["navigate_to", "table"]]}}
+{"id": "sup-05", "category": "supported", "lang": "en", "text": "walk to the door", "expected": {"status": "planned", "steps": [["navigate_to", "door"]]}}
+{"id": "sup-06", "category": "supported", "lang": "en", "text": "move to the shelf", "expected": {"status": "planned", "steps": [["navigate_to", "shelf"]]}}
+{"id": "sup-07", "category": "supported", "lang": "en", "text": "please go to the shelf now", "expected": {"status": "planned", "steps": [["navigate_to", "shelf"]]}}
+{"id": "sup-08", "category": "supported", "lang": "en", "text": "go to the TABLE", "expected": {"status": "planned", "steps": [["navigate_to", "table"]]}}
+{"id": "sup-09", "category": "supported", "lang": "en", "text": "go to the table then go to the shelf", "expected": {"status": "planned", "steps": [["navigate_to", "table"], ["navigate_to", "shelf"]]}}
+{"id": "sup-10", "category": "supported", "lang": "en", "text": "go to the table, then the door", "expected": {"status": "planned", "steps": [["navigate_to", "table"], ["navigate_to", "door"]]}}
+{"id": "sup-11", "category": "supported", "lang": "en", "text": "go to the door and wait", "expected": {"status": "planned", "steps": [["navigate_to", "door"], ["wait", ""]]}}
+{"id": "sup-12", "category": "supported", "lang": "en", "text": "inspect the shelf", "expected": {"status": "planned", "steps": [["inspect", "shelf"]]}}
+{"id": "sup-13", "category": "supported", "lang": "en", "text": "look at the table", "expected": {"status": "planned", "steps": [["inspect", "table"]]}}
+{"id": "sup-14", "category": "supported", "lang": "en", "text": "inspect the table and the shelf", "expected": {"status": "planned", "steps": [["inspect", "table"], ["inspect", "shelf"]]}}
+{"id": "sup-15", "category": "supported", "lang": "en", "text": "say hello then go to the table", "expected": {"status": "planned", "steps": [["speak", ""], ["navigate_to", "table"]]}}
+{"id": "amb-01", "category": "ambiguous", "lang": "en", "text": "go to the chair", "expected": {"status": "clarification_needed"}}
+{"id": "amb-02", "category": "ambiguous", "lang": "en", "text": "inspect the chair", "expected": {"status": "clarification_needed"}}
+{"id": "amb-03", "category": "ambiguous", "lang": "en", "text": "go there", "expected": {"status": "clarification_needed"}}
+{"id": "amb-04", "category": "ambiguous", "lang": "en", "text": "go to it", "expected": {"status": "clarification_needed"}}
+{"id": "amb-05", "category": "ambiguous", "lang": "en", "text": "go", "expected": {"status": "clarification_needed"}}
+{"id": "amb-06", "category": "ambiguous", "lang": "en", "text": "look at that", "expected": {"status": "clarification_needed"}}
+{"id": "off-01", "category": "off_scene", "lang": "en", "text": "go to the kitchen", "expected": {"status": "clarification_needed"}}
+{"id": "off-02", "category": "off_scene", "lang": "en", "text": "go to the fridge", "expected": {"status": "clarification_needed"}}
+{"id": "off-03", "category": "off_scene", "lang": "en", "text": "fetch the box", "expected": {"status": "clarification_needed"}}
+{"id": "off-04", "category": "off_scene", "lang": "en", "text": "go to the window", "expected": {"status": "clarification_needed"}}
+{"id": "par-01", "category": "partial", "lang": "en", "text": "go to the table and dance", "expected": {"status": "clarification_needed"}}
+{"id": "par-02", "category": "partial", "lang": "en", "text": "go to the shelf then sing", "expected": {"status": "clarification_needed"}}
+{"id": "uns-01", "category": "unsupported", "lang": "en", "text": "dance a little", "expected": {"status": "unsupported"}}
+{"id": "uns-02", "category": "unsupported", "lang": "en", "text": "sing a song", "expected": {"status": "unsupported"}}
+{"id": "uns-03", "category": "unsupported", "lang": "en", "text": "what time is it", "expected": {"status": "unsupported"}}
+{"id": "uns-04", "category": "unsupported", "lang": "en", "text": "clean the room", "expected": {"status": "unsupported"}}
+{"id": "uns-05", "category": "unsupported", "lang": "en", "text": "hello", "expected": {"status": "unsupported"}}
+{"id": "man-01", "category": "manipulation", "lang": "en", "text": "pick up the table", "expected": {"status": "planned", "steps": [["pickup", "table"]]}}
+{"id": "hin-01", "category": "multilingual", "lang": "hi", "text": "मेज़ पर जाओ", "expected": {"status": "planned", "steps": [["navigate_to", "table"]]}}
+{"id": "hin-02", "category": "multilingual", "lang": "hi", "text": "दरवाज़े तक जाओ", "expected": {"status": "planned", "steps": [["navigate_to", "door"]]}}
+{"id": "hin-03", "category": "multilingual", "lang": "hi", "text": "शेल्फ़ देखो", "expected": {"status": "planned", "steps": [["inspect", "shelf"]]}}
+{"id": "hin-04", "category": "multilingual", "lang": "hi", "text": "कुर्सी के पास जाओ", "expected": {"status": "clarification_needed"}}
+{"id": "hin-05", "category": "multilingual", "lang": "hi", "text": "नाचो", "expected": {"status": "unsupported"}}

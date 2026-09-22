@@ -10,6 +10,8 @@ from tests.test_scaniverse import COLORS, POINTS, write_binary_ply, write_obj
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("SCANBORN_DATA", str(tmp_path / "data"))
     monkeypatch.setenv("SCANBORN_DB", str(tmp_path / "scanborn.db"))
+    from orchestrator import db
+    monkeypatch.setattr(db, "DB_PATH", str(tmp_path / "scanborn.db"))
     from orchestrator.service import app
     return TestClient(app)
 
@@ -78,11 +80,14 @@ def test_import_requires_exactly_one_source(client):
 
 
 def test_server_side_path_import_still_works(client, tmp_path):
-    """The batch/server-side caller the v3 plan specified."""
-    src = write_binary_ply(str(tmp_path / "room.ply"), POINTS, COLORS)
-    response = client.post("/capture/import", params={"export_path": src})
-    assert response.status_code == 200, response.text
-    assert response.json()["point_count"] == 3
+    """The batch/server-side caller the v3 plan specified, confined to <data>/exports."""
+    exports = tmp_path / "data" / "exports"
+    exports.mkdir(parents=True)
+    src = write_binary_ply(str(exports / "room.ply"), POINTS, COLORS)
+    for name in (src, "room.ply"):  # absolute, or relative to exports/
+        response = client.post("/capture/import", params={"export_path": name})
+        assert response.status_code == 200, response.text
+        assert response.json()["point_count"] == 3
 
 
 def test_import_into_an_explicit_scan_id(client, tmp_path):
@@ -108,3 +113,27 @@ def test_colours_survive_the_round_trip(client, tmp_path):
     scan_id = upload(client, src, "room.ply").json()["scan_id"]
     _, colors = read_ply(str(tmp_path / "data" / "scans" / scan_id / "scaniverse.ply"))
     assert np.array_equal(colors, COLORS)
+
+
+def test_failed_or_oversized_import_never_publishes_a_scan(client, tmp_path, monkeypatch):
+    from capture.service import imports
+    from orchestrator import db
+
+    monkeypatch.setattr(imports, "MAX_IMPORT_BYTES", 32)
+    response = client.post("/capture/too-large/import", files={"file": ("room.ply", b"x" * 33)})
+    assert response.status_code == 400
+    assert not (tmp_path / "data/scans/too-large").exists()
+    with db.connect() as conn:
+        assert db.get(conn, "scans", "too-large") is None
+    assert not list((tmp_path / "data/imports").iterdir())
+
+
+def test_reimport_cannot_overwrite_a_scan_already_referenced_by_artifacts(client, tmp_path):
+    src = write_obj(str(tmp_path / "room.obj"), POINTS)
+    body = upload(client, src, "room.obj").json()
+    scan = tmp_path / "data/scans" / body["scan_id"] / "scaniverse.ply"
+    original = scan.read_bytes()
+    response = client.post(f"/capture/{body['scan_id']}/import",
+                           files={"file": ("room.obj", b"v 0 0 0\n")})
+    assert response.status_code == 409
+    assert scan.read_bytes() == original

@@ -9,13 +9,21 @@ network call in the middle of a demo.
 So the rule is now: a provider must be *named* to be used. Having GROQ_API_KEY set does
 nothing on its own. One environment variable flips the whole pipeline between fully
 offline and remote-assisted, which is also what makes it honest to demo either way.
+
+A name that is not on the list is refused. It used to fall back to local silently, so a typo
+such as `SCANBORN_PLANNER=grok` looked like a working remote configuration.
 """
 import os
 from abc import ABC, abstractmethod
 
-# Providers that reach the network. Anything not in here runs on-device.
+PLANNER_PROVIDERS = ("local", "groq", "sarvam")
+# Providers that reach the network. `local` runs in this process (the orchestrator's machine).
 REMOTE_PROVIDERS = ("groq", "sarvam")
 DEFAULT_PROVIDER = "local"
+
+
+class ProviderSelectionError(ValueError):
+    """A workload was configured with a provider name it does not support."""
 
 
 class TaskPlanner(ABC):
@@ -26,17 +34,17 @@ class TaskPlanner(ABC):
         ...
 
 
-class TaskProvider(ABC):
-    """Older single-shot interface, kept for back-compat with existing callers."""
-
-    @abstractmethod
-    def execute(self, task: str, context: dict) -> str:
-        ...
-
-
 def selected_provider(provider=None) -> str:
-    """Which backend to use: the argument, else SCANBORN_PLANNER, else local."""
-    return (provider or os.environ.get("SCANBORN_PLANNER", DEFAULT_PROVIDER)).lower()
+    """Which backend to use: the argument, else SCANBORN_PLANNER, else local.
+
+    Raises ProviderSelectionError for a name that is not in PLANNER_PROVIDERS.
+    """
+    choice = (provider or os.environ.get("SCANBORN_PLANNER") or DEFAULT_PROVIDER).strip().lower()
+    if choice not in PLANNER_PROVIDERS:
+        raise ProviderSelectionError(
+            f"SCANBORN_PLANNER={choice!r} is not a planner; use one of "
+            f"{', '.join(PLANNER_PROVIDERS)}")
+    return choice
 
 
 def is_remote(provider=None) -> bool:
@@ -62,6 +70,5 @@ def get_planner(objects=None, provider=None) -> TaskPlanner:
     if choice == "sarvam":
         from .sarvam_provider import SarvamPlanner
         return SarvamPlanner(objects)
-
-    from .fallback import FunctionGemmaPlanner
-    return FunctionGemmaPlanner(objects)
+    from .fallback import KeywordPlanner
+    return KeywordPlanner(objects)

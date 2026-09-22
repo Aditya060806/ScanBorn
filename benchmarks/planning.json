@@ -1,0 +1,88 @@
+{
+  "source": "Synthetic furnished room from scripts/bench_mission_planning.py \u2014 not a scan. No real scan exists yet; re-run on one when it does.",
+  "recorded_at": "2026-09-14T14:05:12+00:00",
+  "command": "python scripts/bench_mission_planning.py",
+  "machine": {
+    "cpu": "13th Gen Intel(R) Core(TM) i5-13450HX",
+    "os": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9",
+    "numpy": "2.2.1",
+    "scipy": "1.15.2"
+  },
+  "room": {
+    "size_m": [
+      12.0,
+      10.0
+    ],
+    "sample_step_m": 0.02,
+    "points": 698314,
+    "outliers": 6914,
+    "furniture": 8,
+    "profile": "home",
+    "estimated_floor_z_m": 0.0001,
+    "auto_cell_m": 0.05,
+    "auto_cell_evidence": {
+      "floor_points_per_10cm_cell_p25": 25.0,
+      "threshold": 12,
+      "reason": "dense enough for 5 cm cells"
+    }
+  },
+  "floor_estimate_ms": 20.4,
+  "resolutions": [
+    {
+      "cell_m": 0.1,
+      "width": 120,
+      "height": 100,
+      "counts": {
+        "free": 10099,
+        "blocked": 1716,
+        "unknown": 185
+      },
+      "build_navmesh_ms": 64.3,
+      "navmesh_json_load_ms": 0.4,
+      "clearance_field_ms": 1.2,
+      "plan_with_cached_field_ms": {
+        "p50": 2.7,
+        "p95": 8.3,
+        "max": 11.7
+      },
+      "plan_cold_ms": {
+        "p50": 3.7,
+        "p95": 10.8,
+        "max": 11.7
+      },
+      "fits_budget": true,
+      "surface_points_per_cell": 25.0,
+      "missions": 20,
+      "median_path_length_m": 7.43
+    },
+    {
+      "cell_m": 0.05,
+      "width": 240,
+      "height": 200,
+      "counts": {
+        "free": 41408,
+        "blocked": 5739,
+        "unknown": 853
+      },
+      "build_navmesh_ms": 60.5,
+      "navmesh_json_load_ms": 1.8,
+      "clearance_field_ms": 3.8,
+      "plan_with_cached_field_ms": {
+        "p50": 11.4,
+        "p95": 30.9,
+        "max": 58.9
+      },
+      "plan_cold_ms": {
+        "p50": 15.3,
+        "p95": 36.7,
+        "max": 61.3
+      },
+      "fits_budget": true,
+      "surface_points_per_cell": 6.2,
+      "missions": 20,
+      "median_path_length_m": 6.07
+    }
+  ],
+  "budget_p95_ms": 250
+}

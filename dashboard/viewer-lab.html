@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScanBorn renderer acceptance lab</title>
+<style>body{font:15px system-ui;background:#eef0ea;color:#20251e;margin:20px}button{padding:12px;margin:4px}#scene{height:55vh;min-height:320px}pre{white-space:pre-wrap}#fallback{padding:16px;border:1px solid #ad3b24}</style>
+</head><body><h1>Renderer acceptance lab</h1>
+<p>Deterministic synthetic room at floor Z = 2 m. This checks rendering, not reconstruction accuracy.</p>
+<p>The 500k run uses a fixed 1240 × 396 CSS-pixel canvas. The 100k run uses the current pane size; running it on this laptop does not verify phone performance.</p>
+<pre id="backend" aria-label="WebGL backend"></pre>
+<button id="desktop">Run 500k-point orbit and trace</button><button id="mobile">Run 100k-point orbit and trace</button>
+<button id="cycle">Check repeated scene replacement</button><button id="loss">Test context loss and restore</button>
+<button id="cadence">Check idle browser frame cadence</button>
+<button id="mounts">Check repeated viewer mount and disposal</button>
+<div id="scene"></div><p id="fallback" hidden>2D fallback available · external Stop / E-STOP controls remain reachable.</p>
+<pre id="result" role="status">Ready. Run with the scene visible and other builds idle.</pre>
+<script type="module" src="/shared-viewer/lab.js"></script></body></html>

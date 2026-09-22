@@ -8,8 +8,16 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Scan a space uploads to the orchestrator on the laptop. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Scanning needs ARCore with depth; the assistant features do not, so both are optional and
+         the app still installs on phones without them. -->
+    <uses-feature android:name="android.hardware.camera.ar" android:required="false" />
+    <uses-feature android:glEsVersion="0x00020000" android:required="true" />
 
     <application
+        android:networkSecurityConfig="@xml/network_security_config"
         android:allowBackup="true"
         android:largeHeap="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -20,6 +28,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ScanBorn"
         tools:targetApi="31">
+        <meta-data android:name="com.google.ar.core" android:value="optional" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

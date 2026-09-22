@@ -1,4 +1,4 @@
-"""Remote planner backed by Groq's OpenAI-compatible endpoint.
+"""Remote planner and profiler transport: Groq's OpenAI-compatible endpoint.
 
 Groq is here for one specific reason: it serves *open-weight* models — the Llama, Qwen and
 Gemma families — which is the same class of model the on-device path runs under llama.cpp.
@@ -7,22 +7,23 @@ pipeline against a hosted Qwen today, then point the same prompts at the phone's
 Qwen with nothing to rewrite. That is not true of a closed vendor model, where switching
 to local means re-tuning every prompt.
 
-It is deliberately not the default. `get_planner` selects local unless a provider is named
-explicitly, because a project whose pitch is "nothing leaves the device" must never make a
-network call by accident.
+It is remote, and never selected by a key alone: it runs only when named in
+`SCANBORN_PLANNER` or `SCANBORN_PROFILER`. Replies are judged by contract.py — nothing here
+repairs or filters a model's answer.
 """
-import json
 import os
 
-from .graph import VOCABULARY, TaskGraph, TaskNode
+from .execution import ProviderError, Reply, post_json
+from .graph import TaskGraph
 from .provider import TaskPlanner
-from .schemas import task_graph_targets
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # Groq's catalogue moves; override with GROQ_MODEL rather than editing this.
 DEFAULT_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_MAX_BYTES = 64 * 1024
 
+# The phone's LocalTaskPlanner sends this same text (tests/test_planner_parity.py).
 PROMPT = (
     "Convert the instruction into a JSON task graph for a mobile robot.\n"
     "Use only these actions: {actions}.\n"
@@ -32,22 +33,18 @@ PROMPT = (
 )
 
 
-def groq_chat(system: str, user: str, *, model=None, timeout: float = 30.0,
-              json_object: bool = True) -> str:
-    """One chat completion against Groq. Returns the assistant's raw content.
+def groq_request(system: str, user: str, *, timeout: float, model=None,
+                 max_bytes: int = DEFAULT_MAX_BYTES, json_object: bool = True) -> Reply:
+    """One chat completion against Groq, as a Reply with the model and usage it reported.
 
-    Shared with the profile planner so both remote paths agree on auth, timeout and JSON
-    mode. Raises RuntimeError without a key, matching SarvamPlanner: the caller decides
-    whether to fall back, not this function.
+    Raises ProviderError: `missing_credentials` without a key (before any network call), or the
+    transport outcome from execution.post_json.
     """
     key = os.environ.get("GROQ_API_KEY")
     if not key:
-        raise RuntimeError("GROQ_API_KEY is not set; the local planner needs no key")
-
-    import httpx  # lazy, so importing this module never requires the dependency
-
-    body = {
-        "model": model or os.environ.get("GROQ_MODEL", DEFAULT_MODEL),
+        raise ProviderError("missing_credentials", "GROQ_API_KEY is not set")
+    body: dict = {
+        "model": model or os.environ.get("GROQ_MODEL") or DEFAULT_MODEL,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
@@ -58,19 +55,20 @@ def groq_chat(system: str, user: str, *, model=None, timeout: float = 30.0,
     }
     if json_object:
         body["response_format"] = {"type": "json_object"}
+    content, answered_by, usage = post_json(GROQ_URL, key, body, timeout=timeout,
+                                            max_bytes=max_bytes)
+    return Reply(content, answered_by or body["model"], usage)
 
-    response = httpx.post(
-        GROQ_URL,
-        headers={"Authorization": f"Bearer {key}"},
-        json=body,
-        timeout=timeout,
-    )
-    response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"]
+
+def groq_chat(system: str, user: str, *, model=None, timeout: float = 30.0,
+              json_object: bool = True) -> str:
+    """The reply text alone, for callers that only need content (ModelProfiler)."""
+    return str(groq_request(system, user, timeout=timeout, model=model,
+                            json_object=json_object).value)
 
 
 class GroqPlanner(TaskPlanner):
-    """Natural language -> TaskGraph via a Groq-hosted open-weight model."""
+    """Natural language -> TaskGraph via a Groq-hosted open-weight model, one provider chain."""
 
     def __init__(self, objects=None, model=None, timeout: float = 30.0):
         self.objects = [str(o) for o in (objects or [])]
@@ -78,33 +76,6 @@ class GroqPlanner(TaskPlanner):
         self.timeout = timeout
 
     def plan(self, text: str, lang: str = "en") -> TaskGraph:
-        targets = task_graph_targets(self.objects)
-        system = PROMPT.format(actions=", ".join(VOCABULARY), targets=", ".join(targets))
-        content = groq_chat(system, text, model=self.model, timeout=self.timeout)
-        return self.parse(content, self.objects)
+        from .runner import plan_or_raise
 
-    @staticmethod
-    def parse(content: str, objects=None) -> TaskGraph:
-        """Decode and filter a model reply into a graph.
-
-        Invalid nodes are dropped rather than raising. A model that returns three good
-        steps and one hallucinated target should still move the robot three steps; the
-        on-device path does not need this at all, because the GBNF grammar makes an
-        invalid node unrepresentable.
-        """
-        doc = json.loads(content)
-        if not isinstance(doc, dict):
-            return TaskGraph()
-
-        legal = set(task_graph_targets(objects)) | {""}
-        nodes: list = []
-        for raw in (doc.get("nodes") or []):
-            if not isinstance(raw, dict):
-                continue
-            action, target = raw.get("action"), str(raw.get("target", "")).lower()
-            # Never trust a model with the vocabulary, or with this room's contents.
-            if action in VOCABULARY and target in legal:
-                nodes.append(TaskNode(f"n{len(nodes)}", action, target,
-                                      raw.get("params") or {}))
-        return TaskGraph(nodes=nodes,
-                         edges=[(a.id, b.id) for a, b in zip(nodes, nodes[1:])])
+        return plan_or_raise("groq", text, lang, self.objects, timeout=self.timeout)

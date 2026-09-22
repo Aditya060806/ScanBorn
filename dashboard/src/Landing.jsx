@@ -12,71 +12,76 @@ import { useReveal } from "./useReveal.js";
 gsap.registerPlugin(ScrollTrigger);
 
 const STEPS = [
-  ["01", "Capture", "Chunked ARCore frames from the companion app.",
+  ["01", "Capture",
+   "ARCore raw depth from the ScanBorn app, registered to a printed marker on the floor and uploaded frame by frame — or one finished .ply or .obj from Scaniverse. The app's scan is built but has not yet run on the phone.",
    "POST /capture → scan_id, frame_count"],
   ["02", "Reconstruct",
-   "Two paths, chosen per run: depth fusion for speed, COLMAP and gsplat when the scan has to hold up under a camera move.",
-   "POST /reconstruct → mesh_id, point_count"],
+   "The depth frames fuse into one point cloud on the laptop's CPU, keeping only surfaces at least two frames saw (a one-frame scan keeps everything). An imported scan passes straight through.",
+   "POST /reconstruct → mesh_id, point_count, fusion"],
   ["03", "Segment",
-   "Geometry first — the floor splits off as a z-slab, the rest clusters by voxel connectivity and is labelled by shape. No weights to download, which is what keeps the stage offline.",
+   "Geometry first — the floor splits off as a slab, the rest clusters by voxel connectivity and is labelled by shape. No weights to download, which is what keeps the stage offline.",
    "POST /segment → objects_id, objects[]"],
   ["04", "Generate twin",
-   "Each label maps to a Unity prefab and a collider type, then Unity builds the scene in batch mode.",
-   "POST /generate-twin → twin_id, unity_scene_url"],
-  ["05", "Plan",
-   "Say the task in English or Hindi. Sarvam plans it when a key is set; FunctionGemma plans it on the device when one is not.",
-   "POST /plan → task_graph_id, provider"],
-  ["06", "Train",
-   "Behaviour cloning against the twin, then twenty evaluation episodes. A policy below the gate cannot leave this step.",
-   "POST /train → policy_id, sim_success_rate"],
-  ["07", "Optimize",
-   "Qualcomm AI Hub export, with local QAIRT conversion as the fallback when the token is absent.",
-   "POST /optimize → artifact_id, op_coverage, est_latency"],
-  ["08", "Deploy", "Same call, simulated robot or an UNO Q on the bench.",
-   "POST /deploy → deployment_id, pose_trace"],
+   "The point cloud becomes a free / blocked / unknown grid sized for the robot, at 5 or 10 cm depending on how densely the floor was scanned. Never-seen floor is not drivable.",
+   "POST /generate-twin → twin_id, profile, resolution"],
+  ["05", "Mission",
+   "Pick a start and a goal on the map. The planner keeps the robot's clearance from everything blocked or unknown, and names the reason when there is no route.",
+   "POST /missions → mission_id, path, length_m"],
+  ["06", "Plan",
+   "Optional: type the task instead. The offline planner turns it into steps over six actions on this machine; a network planner is used only when one is named.",
+   "POST /plan → task_graph_id, provider, on_device"],
+  ["07", "Train",
+   "Behaviour cloning of a pure-pursuit controller, then 30 runs of the mission in a model of the two-wheel rover with slip, gyro drift, latency and placement error.",
+   "POST /train → policy_id, sim_success_rate, mission_metrics"],
+  ["08", "Optimize",
+   "The policy is quantized to int8 and timed on the host CPU. Qualcomm AI Hub is used only when a token is configured, and the response says which path ran.",
+   "POST /optimize → artifact_id, backend, est_latency"],
+  ["09", "Deploy",
+   "To the simulated robot, which returns the route it drove; or to a rover over the rover protocol — the fake rover today, the ESP32 once it is built — streamed live with an E-STOP.",
+   "POST /deploy → deployment_id, pose_trace | live"],
 ];
 
 const TIERS = [
   {
-    role: "Phone Sensor Tier",
-    body: "ARCore session, chunked upload. The only sensor in the system.",
+    role: "Phone",
+    body: "ARCore depth capture (built, not yet run on the phone), and a small language model running on the phone's own CPU.",
     specs: [
-      ["Silicon", "Snapdragon 8 Elite (SM8750)"],
-      ["Perception", "YOLO-World + MobileSAM INT8"],
-      ["Telemetry", "240Hz IMU / ARCore 6DoF"],
-      ["Latency", "14.8ms on Hexagon NPU"],
+      ["Device", "Galaxy S24 FE · Exynos 2400e"],
+      ["Model", "Qwen2.5-1.5B Q4_K_M"],
+      ["Measured", "5.3 s to first token, 359-token prompt"],
+      ["Network", "Not needed for the model"],
     ],
   },
   {
-    role: "AI PC Orchestration",
-    body: "Reconstruction, segmentation, Unity batch build, behaviour cloning.",
+    role: "Laptop",
+    body: "Reconstruction, segmentation, twin generation, route planning, simulation and training — all on the CPU.",
     specs: [
-      ["Silicon", "Snapdragon X Elite (X1E-84-100)"],
-      ["NPU Cores", "45 TOPS Hexagon Engine"],
-      ["Twin Engine", "Unity Headless + MuJoCo"],
-      ["Local LLM", "FunctionGemma (W4A16 QNN)"],
+      ["Machine", "Lenovo LOQ · i5-13450HX"],
+      ["Twin", "Navmesh grid + scene manifest"],
+      ["Route", "p95 37 ms, 5 cm grid, synthetic 12 × 10 m room"],
+      ["GPU", "Not required"],
     ],
   },
   {
-    role: "Actuation AMR Tier",
-    body: "The quantized policy, executing on the NPU with the radios off.",
+    role: "Robot",
+    body: "The rover runs the int8 policy's control loop on its own microcontroller; the laptop never steers it.",
     specs: [
-      ["Target", "Arduino UNO Q · QRB2210"],
-      ["Runtime", "TFLite Micro Quantized INT8"],
-      ["Control Loop", "60Hz Deterministic Step"],
-      ["Radio State", "Zero Uplink / 100% Offline"],
+      ["Target", "ESP32 two-wheel rover"],
+      ["Policy", "Int8 linear controller"],
+      ["Gate", "27 of 30 noisy runs within 10 cm"],
+      ["Status", "Firmware compiles and passes its self-test in an emulator; not yet on a board"],
     ],
   },
 ];
 
-// ponytail: streamlined workflow steps focused on user onboarding perspective
-const SCANIVERSE_STEPS = [
-  ["01", "Capture Space (Scaniverse)", "Scan your physical room or environment using Scaniverse on your mobile device and export the scan as a .ply or .obj file.", "User Action: Scaniverse App → Export PLY/OBJ"],
-  ["02", "Onboard & Import Scan", "Open the ScanBorn dashboard, set up your project workspace, and drag-and-drop your exported Scaniverse 3D file.", "User Action: Workspace Onboarding → Upload Scan"],
-  ["03", "Verify 3D Segmentation", "Inspect auto-detected floor planes and clustered 3D objects with interactive AI semantic labels.", "User Action: Review 3D Scene & Object Labels"],
-  ["04", "Generate Digital Twin", "Convert labeled objects into a 1:1 simulation environment in Unity, complete with physics colliders.", "User Action: Generate Physics-Ready Twin"],
-  ["05", "Instruct Task & Train", "Specify the robot's objective using voice or text prompts, then run RL policy training in simulation.", "User Action: Voice/Text Prompt → Train Policy"],
-  ["06", "Deploy to Snapdragon", "Export the quantized neural policy directly to Snapdragon NPU silicon for zero-latency, offline execution.", "User Action: Deploy Binary to Edge Hardware"],
+const OPERATOR_STEPS = [
+  ["01", "Scan the room", "Tape the printed marker to the floor, stand on it pointing along its arrow, and scan with the ScanBorn app — or export a .ply or .obj from Scaniverse.", "App: Tools → Scan a space"],
+  ["02", "Open the scan", "In the console, drop the Scaniverse file or type the scan id the app uploaded.", "Console: Capture"],
+  ["03", "Check the geometry", "Reconstruct and segment, then look at the floor and the labelled clusters in the 3D view.", "Console: Reconstruct → Segment"],
+  ["04", "Build the twin", "Name the environment or let the profiler read the scan; the grid size and its evidence are shown.", "Console: Generate twin"],
+  ["05", "Set the mission", "Click a goal on the map (the start defaults to the marker when the scan has one); alt-click adds a point the route must pass.", "Console: Mission"],
+  ["06", "Train and optimize", "The policy must reach the goal in 27 of 30 noisy runs; otherwise the console shows why it was refused.", "Console: Train → Optimize"],
+  ["07", "Deploy", "Run it on the simulated robot or a fake rover now; the ESP32 rover when it exists. Space is E-STOP.", "Console: Deploy"],
 ];
 
 export default function Landing() {
@@ -84,7 +89,7 @@ export default function Landing() {
   const gateRef = useReveal();
   const edgeRef = useReveal();
   const startRef = useReveal();
-  const scaniverseRef = useReveal();
+  const workflowRef = useReveal();
   const meterFillRef = useRef(null);
   const gateScoreRef = useRef(null);
 
@@ -106,7 +111,7 @@ export default function Landing() {
 
       const obj = { val: 0.0 };
       gsap.to(obj, {
-        val: 0.60,
+        val: 0.90,
         duration: 1.1,
         ease: "power2.out",
         scrollTrigger: { trigger: fill, start: "top 85%" },
@@ -137,7 +142,7 @@ export default function Landing() {
         </aside>
 
         <div className="band__body">
-          <h2 className="title" data-reveal>Eight calls, scan to silicon.</h2>
+          <h2 className="title" data-reveal>Nine calls, scan to robot.</h2>
           <p className="prose" data-reveal>
             The order is not a diagram. Every stage takes the identifier the last one
             returned, so the sequence is enforced by the data, not by the interface.
@@ -169,24 +174,26 @@ export default function Landing() {
 
       <section className="band band--gate" ref={gateRef}>
         <aside className="notes" data-reveal>
-          <p>SIM_GATE, orchestrator/service.py</p>
-          <p>20 evaluation episodes</p>
+          <p>MISSION_GATE, policy/evaluate.py</p>
+          <p>30 noisy runs, 10 cm goal</p>
           <p>HTTP 409 on failure</p>
         </aside>
         <div className="band__body">
           <h2 className="title" data-reveal>An unvalidated policy never reaches hardware.</h2>
           <p className="prose" data-reveal>
-            <code>/train</code> refuses to return a policy that misses the simulated success
-            gate. There is no override flag and no way to hand <code>/deploy</code> an
-            artifact that skipped it — the failing run returns the measured rate and the
-            threshold it missed, and stops there.
+            <code>/train</code> drives the mission 30 times in the rover model, with the slip,
+            drift, latency and placement error the robot's spec assumes, and refuses a policy
+            that stops within 10 cm of the goal in fewer than 90 % of them. There is no
+            override flag and no way to hand <code>/deploy</code> an artifact that skipped it;
+            a mission the room has since blocked is refused too.
           </p>
           <div className="simgate" data-reveal>
             <div className="simgate__meter" aria-hidden="true">
-              <i ref={meterFillRef} style={{ "--pass": 0.6 }} />
+              <i ref={meterFillRef} style={{ "--pass": 0.9 }} />
             </div>
             <p className="simgate__legend">
-              <b ref={gateScoreRef}>0.60</b> minimum success rate in simulation, measured before export.
+              <b ref={gateScoreRef}>0.90</b> of 30 noisy runs must reach the goal. Without a
+              mission: 0.60 of 20 random starts.
             </p>
           </div>
         </div>
@@ -194,9 +201,9 @@ export default function Landing() {
 
       <section className="band" id="stage-nlp">
         <aside className="notes">
-          <p>Zero-shot DAG</p>
-          <p>Multi-modal prompts</p>
-          <p>Sarvam AI & FunctionGemma</p>
+          <p>Six actions</p>
+          <p>Targets from the scene</p>
+          <p>Offline planner</p>
         </aside>
         <div className="band__body">
           <NLPPlayground />
@@ -205,14 +212,14 @@ export default function Landing() {
 
       <section className="band" id="stage-silicon" ref={edgeRef}>
         <aside className="notes" data-reveal>
-          <p>No cloud GPU in the loop.</p>
-          <p>Airplane mode is the demo.</p>
+          <p>No cloud in the loop.</p>
+          <p>No internet needed.</p>
         </aside>
         <div className="band__body">
-          <h2 className="title" data-reveal>Commodity edge hardware, end to end.</h2>
+          <h2 className="title" data-reveal>A phone and a laptop, end to end.</h2>
           <p className="prose" data-reveal>
-            Every stage was built to survive a room with no uplink. The cloud is an
-            optimization, not a dependency.
+            Every stage runs on hardware you already own, with nothing leaving the local
+            network. A remote planner is an option you name, never a dependency.
           </p>
           <ul className="edge-tiers">
             {TIERS.map((tier) => (
@@ -270,20 +277,21 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="band" id="scaniverse" ref={scaniverseRef}>
+      <section className="band" id="workflow" ref={workflowRef}>
         <aside className="notes" data-reveal>
-          <p>Scaniverse onboarding workflow</p>
-          <p>Direct 3D scan ingest</p>
-          <p>User onboarding journey</p>
+          <p>docs/capture/home-marker.svg</p>
+          <p>The marker is the map origin</p>
+          <p>The same marker places the rover</p>
         </aside>
         <div className="band__body">
-          <h2 className="title" data-reveal>User onboarding & Scaniverse workflow.</h2>
+          <h2 className="title" data-reveal>From a room to a drive.</h2>
           <p className="prose" data-reveal>
-            Step-by-step user onboarding journey: from scanning a physical environment with Scaniverse to deploying an autonomous policy onto Snapdragon edge hardware:
+            What an operator does, in order. The scan's origin is the marker, so a route drawn on
+            the map starts where the rover will actually stand.
           </p>
 
           <ol className="steps">
-            {SCANIVERSE_STEPS.map(([n, name, body, sig]) => (
+            {OPERATOR_STEPS.map(([n, name, body, sig]) => (
               <li className="step" key={n} data-reveal>
                 <span className="step__n">{n}</span>
                 <div className="step__body">
@@ -299,4 +307,3 @@ export default function Landing() {
     </>
   );
 }
-

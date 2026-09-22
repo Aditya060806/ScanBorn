@@ -1,0 +1,20 @@
+{
+  "date": "2026-09-17",
+  "fixture": "deterministic synthetic 8x6x2.8 metre room, floor Z=2 metres",
+  "sequence": "45 warm-up frames, then 360-frame camera orbit and growing live trace",
+  "renderer": "ANGLE Intel UHD Graphics Direct3D11, WebGL 2",
+  "pixel_ratio": 1.25,
+  "target_p95_ms": 33,
+  "measurements": [
+    {"points": 100000, "viewport_css_px": [707, 384], "p50_ms": 6.9, "p95_ms": 7.1, "submission_p95_ms": 2.3},
+    {"points": 500000, "viewport_css_px": [707, 384], "p50_ms": 13.8, "p95_ms": 14.1, "submission_p95_ms": 2.2},
+    {"points": 500000, "viewport_css_px": [1240, 396], "p50_ms": 13.8, "p95_ms": 14.0, "submission_p95_ms": 2.2},
+    {"points": 500000, "viewport_css_px": [1240, 396], "p50_ms": 13.8, "p95_ms": 14.2, "submission_p95_ms": 1.9, "context": "after WebGL context restoration, before hardware batching"},
+    {"points": 500000, "viewport_css_px": [1240, 396], "p50_ms": 13.9, "p95_ms": 14.1, "submission_p95_ms": 0.9, "context": "detailed rover batched by material", "draw_calls": 20, "geometries": 14, "textures": 4}
+  ],
+  "resources_after_fixed_size_run": {"geometries": 28, "textures": 4},
+  "earlier_anomaly": {"points": 500000, "viewport_css_px": [1240, 396], "p50_ms": 1006.7, "p95_ms": 1006.9, "cause": "not established; later instrumented runs did not reproduce it"},
+  "phone_measured": false,
+  "mount_disposal": {"cycles": 8, "points": 100000, "geometries_each": 12, "textures_each": 4, "all_canvases_removed": true, "all_contexts_released": true, "pass": true},
+  "limits": "Laptop browser measurements only. No physical phone performance claim. Stable renderer counters and context release do not constitute a browser-process heap profile."
+}

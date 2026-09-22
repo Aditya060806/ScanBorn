@@ -87,7 +87,7 @@ def test_full_pipeline_reaches_a_running_deployment(client):
 
     twin = client.post("/generate-twin", json={
         "mesh_id": mesh["mesh_id"], "objects_id": segmented["objects_id"]}).json()
-    assert json.load(open(twin["unity_scene_url"]))["objects"]
+    assert json.load(open(twin["scene_url"]))["objects"]
     # The twin is only meaningful for a specific robot, so it has to say which one.
     assert twin["profile"]["environment"]
     assert twin["profile"]["robot_radius"] > 0
@@ -105,10 +105,11 @@ def test_full_pipeline_reaches_a_running_deployment(client):
     assert trained.json()["sim_success_rate"] >= 0.6
 
     optimized = client.post("/optimize", json={
-        "policy_id": trained.json()["policy_id"],
-        "device_label": "Snapdragon X Elite CRD"}).json()
+        "policy_id": trained.json()["policy_id"]}).json()
     # No AI Hub token in CI, so this is the local path: a real int8 bundle timed on the
     # host CPU, with no op coverage to report because nothing was compiled for an NPU.
+    artifact = db.get(db.connect(), "artifacts", optimized["artifact_id"])
+    assert artifact["device_label"] == "host-cpu"
     assert optimized["op_coverage"] is None
     assert optimized["latency_source"] == "host-cpu"
     assert optimized["backend"] == "local"
@@ -153,7 +154,7 @@ def test_sync_reports_the_removed_table(client):
 
     rescan = upload_scan(client, frame=scan_frame(table=False))
     diff = client.post("/sync", json={
-        "twin_id": twin["twin_id"], "new_scan_id": rescan}).json()
+        "twin_id": twin["twin_id"], "new_scan_id": rescan, "same_marker_confirmed": True}).json()
 
     assert diff["diff_summary"]["removed_voxels"] > 0
     assert "table" in diff["changed_objects"]
@@ -163,6 +164,15 @@ def test_unknown_ids_are_404s(client):
     assert client.post("/reconstruct", json={"scan_id": "nope"}).status_code == 404
     assert client.post("/segment", json={"mesh_id": "nope"}).status_code == 404
     assert client.get("/status/nope").status_code == 404
+
+
+def test_fidelity_reconstruction_is_a_501_and_an_unknown_mode_a_400(client):
+    scan_id = upload_scan(client)
+    fidelity = client.post("/reconstruct", json={"scan_id": scan_id, "mode": "fidelity"})
+    assert fidelity.status_code == 501
+    assert "not implemented" in fidelity.json()["detail"]
+    assert client.post("/reconstruct",
+                       json={"scan_id": scan_id, "mode": "colmap"}).status_code == 400
 
 
 def test_reconstructing_an_empty_scan_is_a_400(client):

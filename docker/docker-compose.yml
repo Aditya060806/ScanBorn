@@ -1,3 +1,11 @@
+# The orchestrator is the whole backend: it serves capture, reconstruction, segmentation, twins,
+# missions, training, optimisation and rover deployments in one process on SQLite. The dashboard
+# runs from dashboard/ (npm run dev) and the phone app talks to this port directly.
+#
+#   docker compose -f docker/docker-compose.yml up --build
+#
+# A phone or a rover must reach the host's LAN address on 8000 (HTTP) and 5005 (UDP telemetry),
+# so allow both through the host firewall.
 services:
   orchestrator:
     build:
@@ -5,27 +13,9 @@ services:
       dockerfile: docker/Dockerfile.orchestrator
     ports:
       - "8000:8000"
+      - "5005:5005/udp"
     volumes:
-      - ..:/app
-    environment:
-      - CAPTURE_URL=http://capture:8001
-      - SEMANTIC_URL=http://semantic:8002
-
-  capture:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.capture
-    ports:
-      - "8001:8001"
-    volumes:
-      - capture_data:/data
-
-  semantic:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.semantic
-    ports:
-      - "8002:8002"
+      - scanborn_data:/data
 
 volumes:
-  capture_data:
+  scanborn_data:

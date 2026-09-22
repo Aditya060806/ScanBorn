@@ -1,3 +1,5 @@
+# Label -> prefab name and primitive collider for scene.json (twin/generator.py).
+# The names use Unity's vocabulary for an engine importer; none exists in this repository.
 mappings:
   - label: wall
     prefab: Walls/InteriorWall

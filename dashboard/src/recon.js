@@ -92,8 +92,8 @@ const LABEL_COLOR = {
 export const STAGES = [
   ["01", "Capture", "Depth frames stream in from the phone, coloured near to far."],
   ["02", "Reconstruct", "The frames fuse into one cloud and the scan noise settles out."],
-  ["03", "Segment", "Clusters take labels: floor, wall, door, table, chair, shelf, cabinet."],
-  ["04", "Generate twin", "Every label becomes a Unity prefab and the collider that fits it."],
+  ["03", "Segment", "Clusters take labels by shape: floor, wall, table, chair, shelf."],
+  ["04", "Generate twin", "Every label gets a collider, and the cloud becomes a navmesh sized for the robot."],
   ["05", "Train", "A policy learns the route inside the twin, then has to clear the gate."],
   ["06", "Deploy", "The quantized policy drives the robot, with nothing upstream to call."],
 ];

@@ -1,1485 +1,284 @@
 <div align="center">
 
-<img src="assets/logo.png" width="200" alt="ScanBorn Cyclone Logo" />
+<img src="assets/logo.png" width="200" alt="ScanBorn logo" />
 
 # ScanBorn
 
-### Build Once. Deploy Anywhere. Train Robots Inside Their Own Digital Twin
-
-<p align="center">
-An Edge-Native AI Platform for Automatic Digital Twin Generation, Reinforcement Learning, and Real-World Robot Deployment.
-</p>
-
-<p align="center">
-  <a href="https://drive.google.com/file/d/1FVmkK1D10T_MoZQ3SAYPb0TuvyM9fdCo/view?usp=sharing"><b>View Presentation</b></a> • 
-  <a href="https://drive.google.com/drive/folders/1pjukNdoxKCu7rjAIrVEtiGQ_cdr1rQQN?usp=sharing"><b>Demo Videos</b></a>
-</p>
-
----
+### Scan a room with a phone. Train a robot's controller in a model of that room. Let it drive only after it passes.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
-![Unity](https://img.shields.io/badge/Unity-ML--Agents-black?logo=unity)
-![Qualcomm AI Hub](https://img.shields.io/badge/Qualcomm-AI%20Hub-E60012)
-![Edge AI](https://img.shields.io/badge/Edge-AI-success)
-![Digital Twin](https://img.shields.io/badge/Digital-Twin-blueviolet)
-![Reinforcement Learning](https://img.shields.io/badge/RL-PPO-orange)
-![Open Source](https://img.shields.io/badge/Open-Source-brightgreen)
-
-</div>
-
-https://github.com/user-attachments/assets/25042198-c6a0-49a1-9c68-b741852fa50a
-
----
-
-## Dashboard Demo
-
-<div align="center">
-
-<img src="assets/4.png" width="100%" alt="ScanBorn Dashboard - Overview" />
-
-<img src="assets/1.png" width="100%" alt="ScanBorn Dashboard - Pipeline Console" />
-
-<img src="assets/2.png" width="100%" alt="ScanBorn Dashboard - Reconstruction View" />
-
-<img src="assets/3.png" width="100%" alt="ScanBorn Dashboard - Deployment & Telemetry" />
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
 
 </div>
 
 ---
 
-# What is ScanBorn?
+ScanBorn turns a phone scan of a room into a map of where a small two-wheel robot fits. The operator
+picks a start and a goal, ScanBorn plans a route that keeps the robot's clearance, trains the
+robot's route-following controller in a simulation of that robot, and refuses to hand over a
+controller that does not reach the goal in simulation. A controller that passes is quantized to int8
+and sent to the robot, which runs the control loop itself.
 
-ScanBorn is an Edge AI platform that automatically creates a digital twin of a real-world environment, trains an autonomous robot inside that virtual replica using Reinforcement Learning, optimizes the trained policy for Qualcomm Edge AI hardware, and deploys it directly onto a physical robot without manually building simulation environments.
+Everything runs on a laptop CPU and a phone, with no cloud service in the loop.
 
-Instead of spending days creating simulation scenes, navigation maps, reward environments, coordinate systems, and robot policies, ScanBorn generates them automatically from a simple mobile scan.
+## Status
 
-The result is a complete end-to-end pipeline:
+| Part | State |
+|---|---|
+| Orchestrator (REST API, SQLite), reconstruction, segmentation, navmesh, missions, simulation, training, int8 export | **Works**, tested |
+| Dashboard: operator console, mission map, live 3D view, E-STOP | **Works**, browser-tested against a fake rover |
+| Rover protocol and a fake rover that speaks it | **Works**, tested |
+| ESP32 rover firmware | Compiles; its self-test passes on an emulated ESP32. **Not yet run on a board — the rover is not built** |
+| Phone app: on-device chat, voice, OCR, PDF summaries | **Works** on a Galaxy S24 FE |
+| Phone app: room scan | Built and unit-tested; **not yet run on the phone** |
+| Scans used in tests and checks | Synthetic rooms, and generated PLY/OBJ files for the Scaniverse import; **no scan from the app yet** |
 
-```mermaid
-flowchart TD
-    A[🌍 Real World] --> B[📱 3D Capture]
-    B --> C[🏗️ Digital Twin Generation]
-    C --> D[🧠 Semantic Scene Understanding]
-    D --> E[🎮 Unity RL Environment]
-    E --> F[🤖 Policy Training]
-    F --> G[⚡ Model Optimization]
-    G --> H[🚀 Edge Deployment]
-    H --> I[🦾 Autonomous Robot]
-    
-    style A fill:#e1f5fe,stroke:#03a9f4,stroke-width:2px,color:#000
-    style I fill:#e8f5e9,stroke:#4caf50,stroke-width:2px,color:#000
-```
+What ScanBorn does **not** use: reinforcement learning (PPO), Unity or ML-Agents, Whisper, or any
+NPU. The phone is an Exynos device and every model here runs on a CPU.
 
-The entire workflow is orchestrated through a simple guided web application while the majority of AI inference runs locally on Qualcomm-powered edge hardware.
-
----
-
-# Table of Contents
-
-- [Overview](#what-is-scanborn)
-- [Why ScanBorn?](#why-scanborn)
-- [Key Features](#key-features)
-- [System Architecture](#high-level-system-architecture)
-- [Complete Pipeline](#complete-end-to-end-pipeline)
-- [Hardware Overview](#supported-hardware)
-- [Compute Distribution](#compute-distribution)
-- [Core Technologies](#technology-stack)
-- [Repository Structure](#repository-structure)
-- [Installation](#installation)
-- [Usage](#running-scanborn)
-- [Deployment](#edge-robot-deployment)
-- [Testing](#testing)
-- [Benchmarking](#benchmarking)
-- [Roadmap](#roadmap)
-- [Team](#team)
-- [License](#license)
-- [Citation](#citation)
-- [References](#references)
+> **Earlier version.** ScanBorn started at the Snapdragon Multiverse Hackathon (Noida, July 2026)
+> with a different architecture: a Snapdragon phone, Unity ML-Agents, an Arduino UNO Q and the
+> Hexagon NPU. The [hackathon presentation](https://drive.google.com/file/d/1FVmkK1D10T_MoZQ3SAYPb0TuvyM9fdCo/view?usp=sharing)
+> and [demo videos](https://drive.google.com/drive/folders/1pjukNdoxKCu7rjAIrVEtiGQ_cdr1rQQN?usp=sharing)
+> show that version, and `detailed implementation doc.md` is its design. The code in this
+> repository has moved on; this README describes the code.
 
 ---
 
-# Why ScanBorn?
-
-Training robots in the physical world is expensive, slow, and potentially unsafe.
-
-Traditional robotics development usually requires:
-
-- manually creating simulation worlds
-- designing navigation meshes
-- configuring robot environments
-- writing reward functions
-- creating coordinate systems
-- collecting datasets
-- repeatedly deploying onto hardware
-
-This process often takes days or even weeks before meaningful robot learning can begin.
-
-ScanBorn reduces this workflow into a guided pipeline.
-
-Using only a smartphone, ScanBorn can:
-
-- Capture a real environment
-- Construct a digital twin
-- Understand scene semantics
-- Generate robot-ready simulation assets
-- Train an RL policy
-- Optimize the policy
-- Deploy directly to Qualcomm-powered hardware
-
-The physical environment itself becomes the simulation.
-
----
-
-# Project Vision
-
-ScanBorn aims to become an operating system for rapid robot learning.
-
-Rather than creating robots for one specific environment, ScanBorn creates environments that can immediately train robots.
-
-Our long-term vision is:
-
-> **Scan any environment. Generate its digital twin. Train an AI agent. Deploy it back into reality.**
-
-No manual simulation design. No handcrafted maps. No custom robotics pipeline. Just scan, train, and deploy.
-
----
-
-# Key Features
-
-## Automatic Digital Twin Generation
-
-- Smartphone-based environment capture
-- AI-assisted reconstruction
-- Semantic scene understanding
-- Automatic collider generation
-- Navigation mesh creation
-- Coordinate alignment
-- Robot-ready simulation generation
-
----
-
-## Reinforcement Learning Automation
-
-ScanBorn automatically prepares:
-
-- observation space
-- action space
-- reward templates
-- training environment
-- policy export
-
-using [Unity ML-Agents](https://github.com/Unity-Technologies/ml-agents) PPO.
-
----
-
-## Edge AI First
-
-Unlike cloud-only robotics systems, ScanBorn prioritizes on-device intelligence.
-
-Supported execution includes:
-
-- Qualcomm Hexagon NPU
-- Qualcomm AI Hub
-- QAIRT
-- [ONNX Runtime](https://onnxruntime.ai)
-- LiteRT
-- FunctionGemma
-- Mobile inference
-
-The majority of inference occurs directly on edge hardware.
-
----
-
-## Guided Web Application
-
-ScanBorn intentionally hides robotics complexity.
-
-Instead of interacting with SDKs or command-line interfaces, users complete a six-step guided workflow.
+## The loop
 
 ```mermaid
 flowchart LR
-    A([📸 Capture]) --> B([🤖 Choose Robot])
-    B --> C([🧠 Choose AI Model])
-    C --> D([🎙️ Speak Instruction])
-    D --> E([🎯 Choose Activity])
-    E --> F([🚀 Deploy])
-    
-    style A fill:#f3e5f5,stroke:#9c27b0,color:#000
-    style F fill:#e8f5e9,stroke:#4caf50,color:#000
+    A["📱 Scan<br/>ARCore depth from the app,<br/>or a Scaniverse export"] --> B["Reconstruct<br/>fuse depth frames"]
+    B --> C["Segment<br/>floor, walls, objects<br/>by geometry"]
+    C --> D["Twin<br/>free / blocked / unknown grid<br/>sized for the robot"]
+    D --> E["Mission<br/>start, goal, route<br/>with clearance"]
+    E --> F["Train<br/>behaviour cloning in a<br/>rover model with noise"]
+    F -->|"≥ 27 of 30 runs<br/>within 10 cm"| G["Optimize<br/>int8"]
+    F -.->|"otherwise HTTP 409"| E
+    G --> H["Deploy<br/>simulated robot, fake rover,<br/>or ESP32 rover"]
 ```
 
-Designed to be approachable, even if you are new to robotics.
----
+1. **Scan.** Tape the printed marker (`docs/capture/home-marker.svg`) to the floor, stand on it
+   pointing along its arrow and scan with the app. The marker becomes the map's origin, and the same
+   marker is where the rover starts. A finished `.ply` / `.obj` from Scaniverse also works.
+2. **Reconstruct.** Depth frames are fused into one point cloud, keeping surfaces that at least two
+   frames saw.
+3. **Segment.** The floor is found as a slab; the rest is clustered and labelled by shape (wall,
+   table, chair, shelf). No model weights are needed.
+4. **Twin.** The cloud becomes a grid of free, blocked and never-scanned cells at 5 or 10 cm,
+   chosen from how densely the floor was scanned. Never-scanned floor is not drivable.
+5. **Mission.** A start and a goal (clicked on the map or typed) become a route that keeps the
+   robot's clearance, or a refusal that says why.
+6. **Train.** The rover's pure-pursuit controller is cloned into a small linear policy, then driven
+   30 times along the mission in a model of the rover with speed and turn limits, wheel slip, gyro
+   drift, a control delay and placement error. Fewer than 27 of 30 runs stopping within 10 cm of the
+   goal is a refusal (HTTP 409). The noise values are assumptions until the rover is calibrated.
+7. **Optimize.** The policy is quantized to int8 and timed on the laptop CPU.
+8. **Deploy.** To the simulated robot, or to a rover over the rover protocol
+   (`docs/robot/rover-protocol.md`): the orchestrator loads the mission, starts it and relays
+   telemetry; the rover runs the control loop itself, stops on a lost heartbeat, and can be stopped
+   from the console (Space is E-STOP).
 
-## Multilingual Voice Commands
-
-ScanBorn supports natural language robot control.
-
-Online mode:
-
-- Sarvam AI
-- multilingual speech understanding
-- intent parsing
-
-Offline mode:
-
-- [Whisper](https://github.com/openai/whisper)
-- FunctionGemma
-- entirely on-device
-
----
-
-## Edge Robot Deployment
-
-Policies trained in simulation are exported as ONNX models before being:
-
-- optimized
-- quantized
-- accelerated
-- deployed
-
-onto Qualcomm-powered edge hardware.
+A rescan of the same room (`POST /sync`) reports what changed and marks any mission whose route is
+no longer safe as stale; a stale mission cannot be deployed.
 
 ---
 
-# High-Level System Architecture
+## Screenshots
 
-```mermaid
-flowchart TD
-    subgraph Capture["📱 Input & Capture"]
-        A["Smartphone Capture<br/><i>(OnePlus Device)</i>"]
-    end
+These come from `scripts/check_live_drive.py`, which drives the real console in headless Chrome on
+the test suite's synthetic room (not a scan) with the fake rover.
 
-    subgraph Pipeline["🏭 Core Pipeline"]
-        B[Scene Reconstruction]
-        C[Semantic Scene Understanding]
-        D[Digital Twin Generator]
-    end
+<img src="assets/console-mission-map.png" width="60%" alt="Mission map: free, too-close, blocked and never-scanned cells around a chair and a table, with the planned route, the simulated drive and the fake rover's reported position" />
 
-    subgraph Training["🤖 AI & Training"]
-        E[Unity ML-Agents Environment]
-        F[PPO Reinforcement Learning]
-        G[ONNX Policy Export]
-    end
+*The mission map: the planned 2.5 m route, the simulated drive, and the fake rover's reported
+position from the check's last drive, which was stopped with E-STOP soon after it started.*
 
-    subgraph Edge["⚡ Edge Execution"]
-        H[Qualcomm AI Hub Optimization]
-        I[Arduino UNO Q Edge Deployment]
-        J((Autonomous Robot Execution))
-    end
+<img src="assets/console-3d-drive.png" width="60%" alt="3D view of the twin with the planned route and the fake rover's driven trace" />
 
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-    F --> G
-    G --> H
-    H --> I
-    I --> J
+*The 3D view after a fake-rover drive: planned route and the trace the rover reported.*
 
-    style J fill:#4caf50,stroke:#388e3c,stroke-width:4px,color:#fff
-```
+<img src="assets/console-mission-train.png" width="45%" alt="Console stages: mission, train with 30 of 30 runs reached, optimize with ops not profiled and host CPU latency" />
+
+*Mission, train and optimize in the console. "Noise assumed" and "ops not profiled" are what the
+orchestrator reports: nothing is calibrated or profiled yet.*
 
 ---
 
-# Complete End-to-End Pipeline
+## Measured so far
 
-ScanBorn consists of six major stages.
+| What | Result | Conditions | Source |
+|---|---|---|---|
+| On-phone model, first token | 5.3 s | Galaxy S24 FE, Qwen2.5-1.5B-Instruct Q4_K_M, 359-token prompt, 6 threads, weight repacking on; single runs | `benchmarks/phone.json` |
+| On-phone model, prefill | 69.0 tok/s (46.8 with repacking off) | as above | `benchmarks/phone.json` |
+| On-phone model, 256-token reply | 19.0 s | as above | `benchmarks/phone.json` |
+| Route planning, 5 cm grid | p50 15 ms, p95 37 ms | synthetic 12 × 10 m furnished room, 20 missions, i5-13450HX | `benchmarks/planning.json` |
+| Simulated arrival within 10 cm vs route length | 2.5 m: 30/30 · 3.7 m: 25/30 · 4.6 m: 23/30 | rover model with assumed noise; the rover dead-reckons, so long routes drift | master plan, Phase 3 decision 14 |
 
-## Stage 1 - Environment Capture
-
-A Snapdragon-powered smartphone captures:
-
-- RGB imagery
-- camera poses
-- IMU information
-- depth estimation
-- scene geometry
-
-The captured environment becomes the foundation for reconstruction.
+Not measured yet: anything on the real rover, anything from a scan made with the app, and the
+policy on an NPU (there is none).
 
 ---
 
-## Stage 2 - Digital Twin Generation
+## Hardware
 
-Captured data is transformed into:
-
-- reconstructed scene
-- semantic labels
-- physics colliders
-- navigation mesh
-- coordinate system
-- Unity environment
-
-No manual scene building is required.
+| | Role |
+|---|---|
+| **Samsung Galaxy S24 FE** (Exynos 2400e, 8 GB) | Scanning (ARCore raw depth) and the on-device language model |
+| **Laptop** (the project's: Lenovo LOQ, i5-13450HX) | Orchestrator and every pipeline stage, on the CPU; no GPU needed |
+| **ESP32 two-wheel rover** (to be built) | ESP32 DevKit, 2 × JGB37-520 motors with encoders, MPU6050, VL53L0X; parts list and pin map in the master plan §4.3–4.4 |
 
 ---
 
-## Stage 3 - Robot Task Definition
+## Run it
 
-Users specify:
-
-- robot platform
-- activity
-- objective
-- language instruction
-
-ScanBorn converts these selections into reinforcement learning configurations.
-
----
-
-## Stage 4 - Reinforcement Learning
-
-Inside Unity:
-
-- PPO training
-- reward optimization
-- simulation validation
-- policy export
-
-The generated digital twin serves directly as the training environment.
-
----
-
-## Stage 5 - Edge Optimization
-
-Policies are exported to ONNX before:
-
-- quantization
-- optimization
-- Qualcomm AI Hub conversion
-- QAIRT deployment
-
-This enables efficient edge inference.
-
----
-
-## Stage 6 - Real Robot Deployment
-
-The optimized policy is transferred onto the robot where it performs inference locally using Qualcomm hardware acceleration.
-
-The digital twin and the physical robot remain spatially synchronized through ArUco-based coordinate alignment.
-
-<img width="1158" height="684" alt="image" src="https://github.com/user-attachments/assets/2309ea0f-80c8-4ae8-82d9-bfa84bcd54d3" />
-
-
----
-
-# What Makes ScanBorn Different?
-
-Most robotics platforms solve only one piece of the pipeline.
-
-| Existing Approach | Limitation |
-|-------------------|------------|
-| Simulation Platforms | Require manual world creation |
-| Robot SDKs | Require robotics expertise |
-| Digital Twin Software | Stops before robot learning |
-| RL Frameworks | Require custom environments |
-| Edge Deployment Tools | Require trained models |
-
-ScanBorn unifies every stage into one automated workflow.
-
-It is simultaneously:
-
-- Digital Twin Generator
-- Simulation Generator
-- RL Training Platform
-- Edge AI Deployment Pipeline
-- Robot Orchestrator
-
-within a single application.
-
----
-
-# Research Contributions
-
-ScanBorn combines several research areas into one integrated workflow:
-
-- Digital Twin Generation
-- Edge Artificial Intelligence
-- Reinforcement Learning
-- Sim-to-Real Transfer
-- Mobile Spatial Computing
-- Semantic Scene Understanding
-- Robot Learning
-- Qualcomm Edge Optimization
-- On-device AI Inference
-- Autonomous Navigation
-
-While each individual domain has existing tools, ScanBorn focuses on automating the complete lifecycle from environment capture to real-world deployment.
-
----
-
-# Design Principles
-
-ScanBorn is designed around five engineering principles.
-
-### Edge First
-
-Inference should execute on-device whenever practical.
-
-### Modular
-
-Every pipeline stage is independently replaceable.
-
-### Open Source
-
-All source code is publicly available. No proprietary algorithms are required to reproduce the system.
-
-### Hardware Agnostic
-
-Although optimized for Qualcomm platforms, the software architecture is designed to be extensible to future robotics hardware.
-
-### Reproducible
-
-Every stage from environment capture to deployment can be reproduced using documented instructions and open-source dependencies.
-
----
-
-# Repository Structure
-
-The repository is organized to keep every subsystem modular, independently testable, and easy to extend.
-
-```text
-ScanBorn/
-│
-├── README.md
-├── LICENSE
-├── CITATION.cff
-├── CONTRIBUTING.md
-├── CODE_OF_CONDUCT.md
-├── CHANGELOG.md
-├── SECURITY.md
-├── .gitignore
-├── requirements.txt
-├── environment.yml
-├── docker-compose.yml
-│
-├── app/                        # Web Application
-│   ├── frontend/
-│   ├── backend/
-│   ├── api/
-│   └── assets/
-│
-├── capture/
-│   ├── preprocessing/
-│   ├── reconstruction/
-│   ├── segmentation/
-│   └── calibration/
-│
-├── twin_generator/
-│   ├── mesh/
-│   ├── colliders/
-│   ├── navmesh/
-│   └── semantic_labels/
-│
-├── unity/
-│   ├── Assets/
-│   ├── MLAgents/
-│   ├── Scenes/
-│   └── Scripts/
-│
-├── training/
-│   ├── configs/
-│   ├── rewards/
-│   ├── policies/
-│   └── checkpoints/
-│
-├── deployment/
-│   ├── qairt/
-│   ├── onnx/
-│   ├── uno_q/
-│   └── scripts/
-│
-├── robot/
-│   ├── firmware/
-│   ├── bridge/
-│   ├── telemetry/
-│   └── safety/
-│
-├── docs/
-│   ├── architecture/
-│   ├── diagrams/
-│   ├── hardware/
-│   └── benchmarks/
-│
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   ├── simulation/
-│   └── deployment/
-│
-└── examples/
-    ├── demo_environment/
-    ├── sample_models/
-    └── walkthroughs/
-```
-
----
-
-# Software Architecture
-
-ScanBorn follows a modular layered architecture.
-
-```
-Presentation Layer
-│
-├── Web Dashboard
-├── API
-└── User Workflow
-        │
-        ▼
-Orchestration Layer
-│
-├── Capture Manager
-├── Twin Generator
-├── RL Manager
-├── Deployment Manager
-└── Robot Manager
-        │
-        ▼
-AI Services
-│
-├── Detection
-├── Segmentation
-├── Depth
-├── Speech
-├── Intent Parsing
-└── Policy Optimization
-        │
-        ▼
-Execution Layer
-│
-├── Unity
-├── Qualcomm AI Hub
-├── QAIRT
-├── [ONNX Runtime](https://onnxruntime.ai)
-└── Arduino UNO Q
-```
-
----
-
-# Supported Hardware
-
-| Hardware | Purpose |
-|-----------|----------|
-| Snapdragon Smartphone | Environment capture & edge inference |
-| Arduino UNO Q | Robot execution platform |
-| AI PC / Workstation | Reinforcement Learning training |
-| Camera | Localization |
-| Differential Drive Buggy | Demonstration robot |
-| Wi-Fi Network | Robot communication |
-
----
-
-# Compute Distribution
-
-One of ScanBorn's major goals is to maximize edge execution.
-
-| Component | CPU | GPU | NPU |
-|------------|-----|-----|-----|
-| Capture | ✓ |  | ✓ |
-| Depth Estimation |  |  | ✓ |
-| Pose Refinement |  |  | ✓ |
-| Segmentation |  |  | ✓ |
-| Digital Twin | ✓ | ✓ | |
-| Unity Training | ✓ | ✓ | |
-| PPO Learning | ✓ | ✓ | |
-| ONNX Export | ✓ | | |
-| QAIRT Optimization | ✓ | | |
-| Policy Inference | | | ✓ |
-| Robot Navigation | | | ✓ |
-
----
-
-# Technology Stack
-
-## Artificial Intelligence
-
-| Technology | Purpose |
-|------------|---------|
-| [PyTorch](https://pytorch.org) | Deep Learning |
-| [ONNX Runtime](https://onnxruntime.ai) | Model Runtime |
-| Qualcomm AI Hub | Model Optimization |
-| QAIRT | Edge Deployment |
-| FunctionGemma | Offline Intent Parsing |
-| [Whisper](https://github.com/openai/whisper) | Speech Recognition |
-| [YOLO](https://github.com/ultralytics/ultralytics) | Object Detection |
-| [MobileSAM](https://github.com/ChaoningZhang/MobileSAM) | Segmentation |
-| [MiDaS](https://github.com/isl-org/MiDaS) | Depth Estimation |
-
----
-
-## Robotics
-
-| Technology | Purpose |
-|------------|----------|
-| [Unity ML-Agents](https://github.com/Unity-Technologies/ml-agents) | Reinforcement Learning |
-| PPO | Policy Optimization |
-| NavMesh | Navigation |
-| ArUco | Coordinate Alignment |
-| [OpenCV](https://opencv.org) | Vision |
-
----
-
-## Backend
-
-| Technology | Purpose |
-|------------|---------|
-| [FastAPI](https://fastapi.tiangolo.com) | REST Backend |
-| Python | Core Logic |
-| WebSockets | Live Robot Communication |
-| Docker | Containerization |
-
----
-
-## Frontend
-
-| Technology | Purpose |
-|------------|---------|
-| [React](https://react.dev) | User Interface |
-| TypeScript | Frontend Logic |
-| TailwindCSS | Styling |
-
----
-
-# Installation
-
-## System Requirements
-
-### Minimum
-
-- Python 3.11+
-- Git
-- Node.js 20+
-- Unity Hub
-- Unity 2022 LTS
-- 16 GB RAM
-- NVIDIA GPU recommended
-
----
-
-### Recommended
-
-- Ubuntu 22.04 LTS
-- CUDA-enabled GPU
-- Snapdragon-powered Android phone
-- Arduino UNO Q
-- Qualcomm AI Hub access
-
----
-
-# Clone Repository
+Python 3.10+ and Node.js 20.19+ (or 22.12+).
 
 ```bash
-git clone https://github.com/<your-org>/ScanBorn.git
+git clone https://github.com/Aditya060806/ScanBorn.git
 cd ScanBorn
+pip install -e . -r requirements-dev.txt
 ```
 
----
-
-# Create Python Environment
-
-Using Conda
+**Orchestrator** (every pipeline stage, one process):
 
 ```bash
-conda create -n ScanBorn python=3.11
-conda activate ScanBorn
+python -m uvicorn orchestrator.service:app --port 8000
 ```
 
-or
+Add `--host 0.0.0.0` when the phone or a rover must reach it, and allow port 8000 (and UDP 5005
+for rover telemetry) through the firewall. `docker compose -f docker/docker-compose.yml up --build`
+runs the same orchestrator in a container; that image has not been built and run yet.
 
-Using venv
+**Optional remote providers.** Everything above runs locally with no configuration. Task planning
+(`SCANBORN_PLANNER=groq,local`), environment profiling (`SCANBORN_PROFILER=groq,local`) and an
+export experiment (`SCANBORN_EXPORT=ai-hub|qairt`) can be switched on explicitly — see
+`.env.example`. An API key alone never selects a provider, an unknown name is refused before the
+stage runs, and every result records which provider answered, where it ran and why any fallback
+happened. Every plan, local or remote, passes the same contract: a target that is not in the scan
+or is shared by two objects is a question for the operator, never a guess. `GET /providers` shows
+each workload's chain, limits and today's remote usage. Export experiments are recorded beside the
+int8 bundle but never deployed: the rover runs only `npz-int8`.
+
+The dashboard's **Processing providers and privacy** panel and Android Spaces provider controls
+can save ordered provider choices. Explicit consent names the outgoing data before remote choices
+can be saved; credentials stay on the server. Saved choices in the configured data directory's
+`provider-settings.json` override the environment defaults for subsequent stages. Use **Use local
+providers for all stages** to return to local processing. Running requests retain their selection.
+
+For a separate, versioned simulated release check, run
+`python scripts/evaluate_release.py --policy PATH --artifact PATH --spec rover --out NEW_REPORT.json`.
+It evaluates the float policy and actual exported int8 bundle with paired reserved seeds, 100 runs
+per traversable case, a 90% success minimum and zero collisions, plus blocked-route refusals.
+Reports include checksums, robot assumptions, per-run samples and p95 miss distance. This report
+does not replace the mission deployment gate or physical measurements; reserve its scenes and seeds
+from training and tuning.
+
+The local planner's understanding is measured on a frozen intent set (`datasets/intents/`,
+`benchmarks/intents-local-v1.json`): 16 of 16 English plans correct, every ambiguous, off-scene or
+unsupported instruction refused, Hindi not understood (it abstains), and no wrong or unsafe plan.
+Remote planners have not been scored.
+
+**Dashboard** (landing page at `/`, operator console at `/dashboard`):
 
 ```bash
-python -m venv venv
-source venv/bin/activate
-```
-
-Windows
-
-```powershell
-venv\Scripts\activate
-```
-
----
-
-# Install Python Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-# Install Frontend
-
-```bash
-cd app/frontend
+cd dashboard
 npm install
-```
-
----
-
-# Install Unity
-
-Install:
-
-- Unity Hub
-- Unity 2022 LTS
-- Android Build Support
-- Linux Build Support
-- Windows Build Support
-
-Then open `unity/` using Unity Hub.
-
----
-
-# Arduino UNO Q Setup
-
-Install:
-
-- Arduino IDE
-- UNO Q SDK
-- QAIRT Runtime
-
-Flash firmware:
-
-```bash
-cd robot/firmware
-upload firmware
-```
-
----
-
-# Android Setup
-
-Enable:
-
-- USB Debugging
-- Developer Mode
-
-Install:
-
-- Android SDK
-- ADB
-
-Verify:
-
-```bash
-adb devices
-```
-
----
-
-# Qualcomm AI Hub
-
-Authenticate:
-
-```bash
-qai-hub configure
-```
-
-Verify installation:
-
-```bash
-qai-hub devices
-```
-
----
-
-# Running ScanBorn
-
-## Start Backend
-
-```bash
-cd app/backend
-python main.py
-```
-
----
-
-## Start Frontend
-
-```bash
-cd app/frontend
 npm run dev
 ```
 
+With no scan at hand, `python scripts/seed_synthetic_scans.py` uploads the tests' synthetic room and
+prints a scan id to type into the console. **Load offline fixture** replays a recorded run with no
+orchestrator.
+
+**Python SDK** — the whole loop in one call (run from the repository root, orchestrator running):
+
+```python
+from scanborn import ScanBorn
+from tests.test_orchestrator import scan_frame   # the synthetic room the tests use
+
+sb = ScanBorn("http://localhost:8000")
+run = sb.run_pipeline([scan_frame()], text="go to the table",
+                      start=(-1.2, -1.2), goal=(0.6, 0.6))
+print(run["sim_success_rate"], run["deployment_id"])
+```
+
+**Phone app:** see [`MOBILE-APP/README.md`](MOBILE-APP/README.md) (the model file, the build, and
+setting the orchestrator's address).
+
+**Firmware:** `firmware/scanborn_rover/` (Arduino, ESP32 core 3.x). `nox -s firmware` builds it,
+`nox -s firmware_host` runs its maths against golden vectors on the laptop, and `nox -s
+firmware_qemu` runs its self-test on Espressif's ESP32 emulator; the environment variables they need
+are in `noxfile.py`.
+
 ---
 
-## Start Unity
-
-Open `unity/` and press Play.
-
----
-
-## Connect Robot
-
-Power on Arduino UNO Q. Verify connection.
+## Tests and checks
 
 ```bash
-python deployment/check_connection.py
+python -m pytest -q
+python -m flake8 sdk orchestrator capture reconstruction semantic robot sarvam twin policy deployment tests scripts noxfile.py
+python -m mypy sdk orchestrator capture reconstruction semantic robot sarvam twin policy deployment tests
+cd dashboard && npm test && npm run build
+python scripts/check_live_drive.py    # orchestrator and dashboard running; needs Chrome or Edge
 ```
 
----
-
-# Web Application Workflow
-
-ScanBorn is operated entirely through the guided web interface.
-
-## Step 1 - Capture Environment
-
-Walk through the environment using the smartphone.
+CI (GitHub Actions) runs lint, type checks, tests on Python 3.10–3.12, and bandit. The Android app
+has JVM unit tests (`./gradlew :app:testDebugUnitTest`); its screens are checked by hand.
 
 ---
 
-## Step 2 - Choose Robot
+## Repository
 
-Example: `UNO Q Buggy`
-
----
-
-## Step 3 - Choose AI Model
-
-Examples: [YOLO](https://github.com/ultralytics/ultralytics), [MobileSAM](https://github.com/ChaoningZhang/MobileSAM), [Whisper](https://github.com/openai/whisper)
-
----
-
-## Step 4 - Speak Instruction
-
-Examples:
-
-```
-Go to the elevator.
-Navigate to the charging station.
-Move beside the desk.
-Inspect the corridor.
+```text
+orchestrator/      REST API (FastAPI), SQLite store, jobs, rover deployment sessions
+capture/           scan storage and Scaniverse import
+reconstruction/    depth fusion, floor estimate
+semantic/          geometric segmentation (YOLO-World used only if installed)
+twin/              navmesh grid, environment profiles, scene manifest
+policy/            route planning, rover simulation, controller, behaviour cloning, evaluation gates
+robot/             rover spec, rover protocol, adapters (simulated, rover), fake rover
+sarvam/            task planning from text: offline keyword planner, optional remote planners
+deployment/        int8 export; optional Qualcomm AI Hub path (needs a token and a Snapdragon target)
+sdk/scanborn/      Python client for every route
+dashboard/         React + Vite: landing page and operator console
+MOBILE-APP/        Android app (Kotlin, Compose, ARCore, llama.cpp)
+firmware/          ESP32 rover firmware
+scripts/           fixtures, benchmarks, browser and scan checks
+docs/              API (OpenAPI), rover protocol, capture marker, hardware notes, plans
+benchmarks/        measured numbers, each with how it was measured
+experiments/       the hackathon's Snapdragon RC-buggy experiment, kept for the record
+docker/            orchestrator image
 ```
 
----
-
-## Step 5 - Choose Activity
-
-Examples:
-
-- Navigation
-- Patrol
-- Follow
-- Pick Object
-- Waypoint Navigation
+Where the project is and what comes next: `docs/superpowers/START-HERE.md`. The plan:
+`docs/superpowers/plans/2026-09-13-scanborn-scan-to-drive-plan.md`.
 
 ---
 
-## Step 6 - Deploy
-
-Click `Deploy to Robot`. The optimized policy is pushed onto the robot, where inference runs locally.
-
----
-
-# Performance Pipeline
-
-```mermaid
-flowchart TD
-    A([📸 Capture]) --> B[⚙️ Preprocessing]
-    B --> C[🏗️ Reconstruction]
-    C --> D[🏭 Twin Generation]
-    D --> E[🤖 RL Training]
-    E --> F[📦 ONNX Export]
-    F --> G[⚡ QAIRT Optimization]
-    G --> H([🚀 Edge Deployment])
-    
-    style A fill:#e3f2fd,stroke:#2196f3,color:#000
-    style H fill:#e8f5e9,stroke:#4caf50,color:#000
-```
-
----
-
-# Configuration
-
-Configuration files are stored under `configs/`.
-
-Example:
-
-```yaml
-capture:
-  resolution: high
-
-training:
-  algorithm: PPO
-  max_steps: 500000
-
-deployment:
-  target: uno_q
-  quantization: int8
-
-speech:
-  mode: offline
-
-simulation:
-  unity: true
-```
-
----
-
-# Running Individual Components
-
-Capture
-
-```bash
-python capture/run_capture.py
-```
-
-Generate Twin
-
-```bash
-python twin_generator/generate.py
-```
-
-Train Policy
-
-```bash
-mlagents-learn configs/ppo.yaml
-```
-
-Export ONNX
-
-```bash
-python training/export_policy.py
-```
-
-Optimize
-
-```bash
-python deployment/quantize.py
-```
-
-Deploy
-
-```bash
-python deployment/deploy.py
-```
-
----
-
-# Logging
-
-Runtime logs are stored inside `logs/`:
-
-- Backend Logs
-- Robot Logs
-- Deployment Logs
-- Training Logs
-- Inference Logs
-
----
-
-# Monitoring
-
-ScanBorn continuously monitors:
-
-- Robot Status
-- Battery
-- Latency
-- FPS
-- Policy State
-- NPU Utilization
-- Deployment Health
-
-through the web dashboard.
-
----
-
-# Testing
-
-ScanBorn includes multiple levels of testing to ensure reproducibility, deployment reliability, and real-world robustness.
-
-| Test Suite | Description |
-|------------|-------------|
-| Unit Tests | Validate individual modules and utility functions |
-| Integration Tests | Verify communication between pipeline stages |
-| Simulation Tests | Evaluate RL policies inside Unity |
-| Deployment Tests | Verify successful deployment to edge hardware |
-| Hardware Tests | Validate robot communication and inference |
-| End-to-End Tests | Full pipeline from capture to deployment |
-
----
-
-## Running All Tests
-
-```bash
-pytest tests/
-```
-
----
-
-## Unit Tests
-
-```bash
-pytest tests/unit
-```
-
----
-
-## Integration Tests
-
-```bash
-pytest tests/integration
-```
-
----
-
-## Deployment Validation
-
-```bash
-python tests/deployment/test_uno_q.py
-```
-
----
-
-## Simulation Validation
-
-```bash
-python tests/simulation/run_validation.py
-```
-
----
-
-# Performance
-
-> **Note**
->
-> Performance values depend on the target hardware, environment complexity, and model configuration. Benchmark values should be regenerated before production deployment.
-
-Typical metrics monitored include:
-
-| Metric | Description |
-|----------|-------------|
-| Capture Time | Environment scanning duration |
-| Reconstruction Time | Twin generation latency |
-| RL Training Time | Policy convergence time |
-| Deployment Time | Model transfer duration |
-| Inference Latency | Edge inference speed |
-| Robot FPS | Runtime control frequency |
-| NPU Utilization | Qualcomm Hexagon usage |
-| Memory Usage | Runtime RAM consumption |
-
----
-
-# Benchmarking
-
-Benchmark values below reflect measurements taken on reference hardware (Snapdragon 8 Gen 3 smartphone for edge inference, NVIDIA RTX 3060 for RL training, Arduino UNO Q for robot execution). Actual values vary with environment complexity and hardware configuration.
-
-## Resource Utilization
-
-| Stage | CPU Usage | Memory (RAM) | NPU Usage | Storage |
-|-------|-----------|--------------|-----------|---------|
-| Environment Capture | 30-50% | 1-2 GB | 40-60% | 500 MB/min |
-| Scene Reconstruction | 60-80% | 4-8 GB | - | 2-5 GB per scene |
-| Semantic Segmentation | 20-30% | 1-2 GB | 50-70% | - |
-| Digital Twin Generation | 70-90% | 8-16 GB | - | 1-3 GB per twin |
-| RL Training (Unity) | 40-60% | 4-8 GB | - | 10-50 GB per run |
-| ONNX Export | 30-50% | 2-4 GB | - | 50-200 MB per model |
-| QAIRT Optimization | 50-70% | 2-4 GB | - | 20-100 MB per model |
-| Edge Inference (NPU) | 10-20% | 256-512 MB | 60-80% | - |
-| Robot Navigation | 15-25% | 128-256 MB | 40-60% | - |
-
-## Optimization
-
-| Optimization Step | Model Size | Size Reduction | Inference Speedup |
-|------------------|------------|----------------|-------------------|
-| Trained ONNX policy | 150-250 MB | Baseline | 1x |
-| FP16 quantization | 75-125 MB | 50% | 1.5-2x |
-| INT8 quantization | 40-65 MB | 75% | 3-4x |
-| QAIRT optimization | 35-60 MB | 78% | 4-6x |
-| NPU delegation | 35-60 MB | 78% | 8-12x |
-
-## Latency and Performance
-
-| Operation | Typical Latency | Hardware |
-|-----------|----------------|----------|
-| Scene capture (per frame) | 30-50 ms | Snapdragon 8 Gen 3 |
-| Depth estimation (per frame) | 15-25 ms | Hexagon NPU |
-| Semantic segmentation (per frame) | 20-40 ms | Hexagon NPU |
-| Full reconstruction (small scene) | 3-8 min | AI PC (RTX 3060) |
-| Full reconstruction (large scene) | 10-25 min | AI PC (RTX 3060) |
-| Digital twin generation | 2-5 min | AI PC (RTX 3060) |
-| RL training (500K steps) | 45-90 min | AI PC (RTX 3060) |
-| Model export + quantization | 1-3 min | AI PC |
-| Policy inference (on-device) | 5-15 ms | Hexagon NPU |
-| Control loop (motor commands) | 20-30 ms | Arduino UNO Q |
-| End-to-end pipeline (small scene) | 60-120 min | Reference setup |
-
-## Energy Efficiency
-
-| Compute Mode | Measured Power | Relative Efficiency | Notes |
-|-------------|----------------|-------------------|-------|
-| Cloud GPU inference | 150-300 W | 1x (baseline) | Not used in default pipeline |
-| AI PC training (RTX 3060) | 120-170 W | - | Training phase only |
-| Snapdragon NPU inference | 2-5 W | 30-60x vs cloud | Primary inference path |
-| Snapdragon CPU inference | 3-8 W | 15-20x vs cloud | Fallback mode |
-| Arduino UNO Q execution | 0.5-1.5 W | 200-300x vs cloud | Robot onboard compute |
-| Full pipeline (edge only) | 10-25 W | - | Capture + inference combined |
-
-The system is designed to maximize NPU offload during inference, keeping power consumption under 5 W for all real-time robot operations. The AI PC is used only during the training phase (45-90 min per policy), after which all deployment inference runs on edge hardware.
-
----
-
-# Safety Features
-
-ScanBorn is designed with deployment safety in mind.
-
-## Robot Safety
-
-- Maximum velocity limits
-- Emergency stop
-- Deployment verification
-- Coordinate validation
-- Collision-aware navigation
-- Safe inference boundaries
-
----
-
-## AI Safety
-
-- Simulation validation before deployment
-- Confidence threshold verification
-- Policy integrity checks
-- Quantized model validation
-- Runtime monitoring
-
----
-
-## Software Safety
-
-- Exception handling
-- API validation
-- Logging
-- Configuration validation
-- Deployment rollback
-
----
-
-# Telemetry
-
-During deployment ScanBorn streams:
-
-- Robot status
-- Motor state
-- Battery level
-- Camera feed
-- Current policy
-- Position
-- Goal
-- Inference latency
-- Deployment status
-
-to the web dashboard.
-
----
-
-# Monitoring Dashboard
-
-The dashboard provides live monitoring of:
-
-- Capture progress
-- Reconstruction status
-- RL training progress
-- Robot health
-- Deployment progress
-- Policy execution
-- Edge inference
-- System diagnostics
-
----
-
-# Troubleshooting
-
-## Backend won't start
-
-Ensure `pip install -r requirements.txt` is completed successfully.
-
----
-
-## Frontend won't build
-
-Delete `node_modules` and reinstall with `npm install`.
-
----
-
-## Unity project fails
-
-Verify:
-
-- Unity 2022 LTS
-- ML-Agents package installed
-- Correct Python environment
-
----
-
-## Robot cannot connect
-
-Verify:
-
-- Wi-Fi connection
-- UNO Q firmware
-- USB permissions
-- Device IP address
-
----
-
-## Qualcomm AI Hub issues
-
-Verify `qai-hub devices` returns available devices.
-
----
-
-# Frequently Asked Questions
-
-## Does ScanBorn require cloud connectivity?
-
-No. The majority of inference is designed to execute locally on supported edge hardware. Some optional cloud services (such as multilingual online speech understanding) may be used depending on configuration.
-
----
-
-## Can I use another robot?
-
-Yes. The robot abstraction layer allows new robot adapters to be implemented with minimal changes.
-
----
-
-## Can another reinforcement learning algorithm be used?
-
-Yes. ScanBorn is designed to be modular. Although PPO is the reference implementation, alternative algorithms can be integrated.
-
----
-
-## Can I replace Unity?
-
-Yes. The architecture intentionally separates simulation generation from policy training. Alternative simulators can be integrated.
-
----
-
-## Does ScanBorn require Qualcomm hardware?
-
-No. The architecture is modular. Qualcomm platforms provide the reference implementation and optimized execution path, but portions of the system can run on other supported hardware.
-
----
-
-# Continuous Integration
-
-Recommended GitHub Actions workflow:
-
-- Linting
-- Unit Tests
-- Integration Tests
-- Build Verification
-- Documentation Checks
-- Dependency Audit
-
-Every pull request should pass automated validation before merging.
-
----
-
-# Contributing
-
-Contributions of all sizes are welcome.
-
-To contribute:
-
-1. Fork the repository.
-2. Create a feature branch.
-
-```bash
-git checkout -b feature/amazing-feature
-```
-
-1. Commit changes.
-
-```bash
-git commit -m "Add amazing feature"
-```
-
-1. Push.
-
-```bash
-git push origin feature/amazing-feature
-```
-
-1. Open a Pull Request.
-
----
-
-## Contribution Guidelines
-
-Please ensure:
-
-- Code is documented.
-- New features include tests.
-- Existing functionality is not broken.
-- Pull requests remain focused.
-- Follow PEP-8 (Python) and project style guides.
-
----
-
-# Security
-
-If you discover a security vulnerability, **please do not disclose it publicly immediately**. Instead, report it privately to the maintainers. Responsible disclosure helps protect users while fixes are prepared.
-
----
-
-# Team
+## Team
 
 | Name | Role |
-|------|------|
+|---|---|
 | Aditya Pandey | AI & Reinforcement Learning and Edge-AI & Embedded Systems |
 | Adhishvar Singh | Robotics & Autonomous Systems |
 | Palak Rai | Full-Stack & Cloud Infrastructure |
 
----
+Contact: aditya060806@gmail.com
 
-# Contact
+## License
 
-For questions, collaborations, or issues:
+MIT — see [`LICENSE`](LICENSE). Third-party components and their licences:
+[`docs/THIRD_PARTY_LICENSES.md`](docs/THIRD_PARTY_LICENSES.md).
 
-```
-aditya060806@gmail.com
-```
-
----
-
-# Roadmap
-
-## Completed
-
-- Environment capture
-- Digital twin generation
-- Semantic labeling
-- Unity integration
-- Reinforcement Learning
-- ONNX export
-- Qualcomm AI Hub optimization
-- Edge deployment
-- Web dashboard
-
----
-
-## Planned
-
-- Multi-robot coordination
-- Swarm robotics
-- Dynamic obstacle adaptation
-- Incremental twin updates
-- Cloud synchronization
-- Offline mobile-only workflow
-- Multi-floor mapping
-- Visual SLAM improvements
-- Autonomous exploration
-
----
-
-# Open Source Philosophy
-
-ScanBorn is built on the belief that advanced robotics research should be reproducible, transparent, and accessible.
-
-Accordingly:
-
-- No proprietary algorithms are required.
-- Source code is publicly available.
-- Dependencies are openly documented.
-- Installation is reproducible from scratch.
-- Research results can be independently verified.
-
----
-
-# References
-
-This project builds upon numerous outstanding open-source tools and research efforts, including (but not limited to):
-
-- [Unity ML-Agents](https://github.com/Unity-Technologies/ml-agents)
-- [ONNX Runtime](https://onnxruntime.ai)
-- Qualcomm AI Hub
-- Qualcomm AI Runtime (QAIRT)
-- [OpenCV](https://opencv.org)
-- [PyTorch](https://pytorch.org)
-- [FastAPI](https://fastapi.tiangolo.com)
-- [React](https://react.dev)
-- [Whisper](https://github.com/openai/whisper)
-- FunctionGemma
-- [YOLO](https://github.com/ultralytics/ultralytics)
-- Segment Anything (SAM)
-- [MobileSAM](https://github.com/ChaoningZhang/MobileSAM)
-- [MiDaS](https://github.com/isl-org/MiDaS)
-
-Please refer to the official documentation of each project for licensing and attribution details.
-
----
-
-# Citation
-
-If ScanBorn contributes to your research, please cite it.
+## Citation
 
 ```bibtex
 @software{ScanBorn2026,
-  title={ScanBorn: Automatic Digital Twin Generation and Edge Reinforcement Learning Platform},
+  title={ScanBorn: From a Phone Scan to a Simulation-Gated Robot Controller},
   author={Team Ghost Map},
   year={2026},
   url={https://github.com/Aditya060806/ScanBorn}
 }
 ```
-
----
-
-# License
-
-This repository is released under the **MIT License**.
-
-See the accompanying **LICENSE** file for details.
-
----
-
-# Acknowledgements
-
-We gratefully acknowledge the technologies, communities, and open-source ecosystems that made ScanBorn possible.
-
-Special thanks to:
-
-- Qualcomm Technologies
-- Qualcomm AI Hub
-- Unity Technologies
-- [OpenCV](https://opencv.org) Community
-- [PyTorch](https://pytorch.org) Contributors
-- [ONNX Runtime](https://onnxruntime.ai) Team
-- [FastAPI](https://fastapi.tiangolo.com) Contributors
-- [React](https://react.dev) Community
-- Open Source Software Maintainers worldwide
-
----
-
-# Support the Project
-
-If you find ScanBorn useful:
-
-- Star this repository
-- Fork the project
-- Contribute improvements
-- Report issues
-- Suggest new features
-
-Every contribution, large or small, helps improve the project.
-
----
-
-<div align="center">
-
-# ScanBorn
-
-### Scan - Generate - Train - Optimize - Deploy
-
-**Building the future of autonomous robotics through Digital Twins and Edge AI.**
-
-Built by the ScanBorn Team.
-
-</div>

@@ -1,32 +1,35 @@
+"""Chunked scan storage (capture/service/store.py), which the orchestrator's /capture routes use.
+
+These tests once went through a standalone capture service with its own routes; nothing called that
+service, and it was removed in Phase 7. The orchestrator's routes are covered in
+tests/test_orchestrator.py and tests/test_capture_meta.py.
+"""
 import pytest
-from fastapi.testclient import TestClient
 
-from capture.service.app import app
+from capture.service import store
 
 
-@pytest.fixture()
-def client(tmp_path, monkeypatch):
+@pytest.fixture(autouse=True)
+def data_root(tmp_path, monkeypatch):
     monkeypatch.setenv("SCANBORN_DATA", str(tmp_path))
-    return TestClient(app)
 
 
-def test_chunked_upload_flow(client):
+def test_chunked_upload_flow():
     for i in range(3):
-        r = client.post(
-            f"/upload/scan1?index={i}", files={"file": (f"c{i}.npz", b"frame" + bytes([i]))}
-        )
-        assert r.status_code == 200
+        store.save_chunk("scan1", i, b"frame" + bytes([i]))
+    assert store.status("scan1") == {"status": "uploading", "frame_count": 3}
 
-    # resumable: re-upload chunk 1, idempotent
-    client.post("/upload/scan1?index=1", files={"file": ("c1.npz", b"frame1x")})
+    # Resumable: re-sending a chunk replaces it rather than adding a frame.
+    path = store.save_chunk("scan1", 1, b"frame1x")
+    with open(path, "rb") as f:
+        assert f.read() == b"frame1x"
 
-    client.post("/meta/scan1", json={"device": "oneplus15"})
-    r = client.post("/complete/scan1")
-    assert r.json()["frame_count"] == 3
-
-    r = client.get("/scan/scan1")
-    assert r.json() == {"status": "complete", "frame_count": 3}
+    store.save_meta("scan1", {"device": "test"})
+    assert store.read_meta("scan1") == {"device": "test"}
+    assert store.complete("scan1") == 3
+    assert store.status("scan1") == {"status": "complete", "frame_count": 3}
 
 
-def test_unknown_scan(client):
-    assert client.get("/scan/nope").json()["status"] == "unknown"
+def test_unknown_scan():
+    assert store.status("nope") == {"status": "unknown", "frame_count": 0}
+    assert store.read_meta("nope") == {}

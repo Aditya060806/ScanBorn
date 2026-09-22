@@ -1,0 +1,15 @@
+# The build context is the repository root; the image needs only the Python packages.
+.git
+**/__pycache__
+**/*.pyc
+.env
+.env.*
+data/
+build/
+MOBILE-APP/
+capture/android/
+dashboard/
+firmware/
+docs/
+assets/
+experiments/

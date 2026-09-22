@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, lazy, Suspense } from "react";
 
-import Console from "./Console.jsx";
-import Landing from "./Landing.jsx";
+const Console = lazy(() => import("./Console.jsx"));
+const Landing = lazy(() => import("./Landing.jsx"));
 import { Link, usePath } from "./router.jsx";
 
 /**
@@ -41,7 +41,7 @@ export default function App() {
         </nav>
       </header>
 
-      <main>{onConsole ? <Console /> : <Landing />}</main>
+      <main><Suspense fallback={<p role="status">Loading workspace…</p>}>{onConsole ? <Console /> : <Landing />}</Suspense></main>
 
       <footer className="stamp">
         <span>ScanBorn</span>

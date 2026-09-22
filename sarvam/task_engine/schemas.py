@@ -39,7 +39,7 @@ PROFILE_BOUNDS = {
 def task_graph_targets(objects=None) -> list:
     """Legal `target` values: the scene's own labels first, then the ontology.
 
-    Scene labels come first for the same reason FunctionGemmaPlanner prefers them — a
+    Scene labels come first for the same reason KeywordPlanner prefers them — a
     label this room actually contains is a better guess than a generic ontology entry.
     The empty string is legal because `wait` and `speak` have no target.
     """

@@ -1,3 +1,9 @@
+> **Historical document — not the current design.** This is the July 2026 hackathon blueprint:
+> a Snapdragon phone, the Hexagon NPU, Qualcomm AI Hub, Unity, an Arduino UNO Q and a Postgres
+> store. The project has since moved to a Galaxy S24 FE (Exynos, no NPU), CPU-only processing,
+> SQLite, a simulation-gated controller and an ESP32 rover. For what exists now read
+> `docs/superpowers/START-HERE.md` and `README.md`. Figures below are targets and estimates, not measurements.
+
 ## ScanBorn System Design Blueprint v2
 
 Snapdragon Multiverse Hackathon, Noida | System Design Blueprint v2 (Reviewed)

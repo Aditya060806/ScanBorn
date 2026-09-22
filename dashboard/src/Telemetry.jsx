@@ -1,255 +1,170 @@
 import React, { useEffect, useState } from "react";
-import { benchmarks } from "./api";
 
-// Blueprint section 14: below this share of layers on the NPU, a model needs a GPU
-// fallback path rather than being called "NPU-deployed".
-const NPU_GATE = 80;
+import { benchmarks } from "./api.js";
 
 /**
- * Where each workload runs, and why it belongs there. This is the argument the
- * benchmark numbers below are evidence for — the UNO Q row is deliberately "no NPU",
- * because a QRB2210 has an Adreno 702 and a low-power Hexagon DSP, not a tensor NPU.
+ * Where each workload runs, on the hardware this project actually uses. None of it relies on
+ * an accelerator: the phone's model runs on its CPU, and the laptop's GPU is not needed by the
+ * core loop.
  */
 const TIERS = [
-  { tier: "Perception", silicon: "OnePlus 15 · 8 Elite", unit: "Hexagon NPU",
-    workload: "YOLO-World + MobileSAM, INT8" },
-  { tier: "Orchestration", silicon: "X Elite AI PC", unit: "NPU",
-    workload: "Reconstruction, twin gen, planning" },
-  { tier: "Actuation", silicon: "Arduino UNO Q · QRB2210", unit: "CPU (no NPU)",
-    workload: "INT8 linear policy" },
+  {
+    tier: "Phone",
+    hardware: "Galaxy S24 FE · Exynos 2400e",
+    compute: "CPU, 6 threads",
+    workload: "ARCore depth capture; Qwen2.5-1.5B Q4_K_M under a grammar",
+  },
+  {
+    tier: "Laptop",
+    hardware: "Lenovo LOQ · i5-13450HX",
+    compute: "CPU (GPU not needed)",
+    workload: "Orchestrator: reconstruction, twin, planning, training, int8 export",
+  },
+  {
+    tier: "Robot",
+    hardware: "ESP32 two-wheel rover (being built)",
+    compute: "Microcontroller",
+    workload: "Odometry and the int8 policy's control loop",
+  },
 ];
 
-/** Prefer the measured p50 over the single-point estimate when the profile has runs. */
-const latency = (r) => r?.latency_p50_ms ?? r?.latency_ms ?? null;
+const BUILD_LABELS = {
+  baseline: "Baseline build",
+  arm_optimised: "ARM-optimised build",
+  arm_optimised_repack: "ARM-optimised + repack build",
+};
 
-/**
- * NPU vs CPU — same compiled binary, same device, only the compute unit differs.
- * A ratio is what an efficiency claim needs; an absolute number alone proves nothing.
- */
-function Compare({ npu, cpu, speedup }) {
-  const [animated, setAnimated] = useState(false);
-  const npuMs = latency(npu);
-  const cpuMs = latency(cpu);
+const seconds = (ms) => (ms == null ? "—" : `${(ms / 1000).toFixed(1)} s`);
+const rate = (value) => (value == null ? "—" : `${value} tok/s`);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setAnimated(true), 50);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (!npuMs || !cpuMs) return null;
-  const worst = Math.max(npuMs, cpuMs);
-  const bar = (ms) => animated ? `${Math.max(3, (ms / worst) * 100)}%` : "0%";
-
-  return (
-    <div className="compare">
-      <div className="bar-row">
-        <span className="bar-label">NPU</span>
-        <span
-          className="bar npu"
-          style={{
-            width: bar(npuMs),
-            transition: "width 800ms cubic-bezier(0.16, 1, 0.3, 1)",
-          }}
-        />
-        <span className="bar-value">{npuMs} ms</span>
-      </div>
-      <div className="bar-row">
-        <span className="bar-label">CPU</span>
-        <span
-          className="bar cpu"
-          style={{
-            width: bar(cpuMs),
-            transition: "width 800ms cubic-bezier(0.16, 1, 0.3, 1) 100ms",
-          }}
-        />
-        <span className="bar-value">{cpuMs} ms</span>
-      </div>
-      {speedup && <p className="speedup">{speedup}× faster on the NPU</p>}
-    </div>
-  );
+function buildLabel(run) {
+  const base = BUILD_LABELS[run.build] ?? run.build;
+  if (run.repack === true) return `${base}, repack on`;
+  if (run.repack === false) return `${base}, repack off`;
+  return base;
 }
 
-/** Visual tail distribution chart across p50, p95, and p99 runs */
-function TailChart({ record }) {
-  const [active, setActive] = useState(false);
-  const p50 = record.latency_p50_ms;
-  const p95 = record.latency_p95_ms;
-  const p99 = record.latency_p99_ms;
-
-  useEffect(() => {
-    const timer = setTimeout(() => setActive(true), 120);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (!p95 || !p99) return null;
-  const max = Math.max(p99, 1);
-
+/** benchmarks/phone.json — every value read from the phone's own logs. */
+function PhoneRuns({ phone }) {
+  const runs = phone.runs ?? [];
   return (
-    <div className="tail-chart" title={`Tail Latency: p50=${p50}ms, p95=${p95}ms, p99=${p99}ms`}>
-      <div className="tail-col">
-        <div
-          className="tail-bar"
-          style={{ height: active ? `${Math.round((p50 / max) * 100)}%` : "2px" }}
-        />
-        <span className="tail-col-label">p50</span>
-      </div>
-      <div className="tail-col">
-        <div
-          className="tail-bar p95"
-          style={{ height: active ? `${Math.round((p95 / max) * 100)}%` : "2px" }}
-        />
-        <span className="tail-col-label">p95</span>
-      </div>
-      <div className="tail-col">
-        <div
-          className="tail-bar p99"
-          style={{ height: active ? `${Math.round((p99 / max) * 100)}%` : "2px" }}
-        />
-        <span className="tail-col-label">p99</span>
-      </div>
-    </div>
-  );
-}
-
-/** p50/p95/p99 across real runs — a control loop is judged on its tail. */
-function Tail({ record }) {
-  if (!record.latency_p95_ms) return null;
-  return (
-    <div>
-      <TailChart record={record} />
-      <p className="tail">
-        p50 {record.latency_p50_ms} · p95 {record.latency_p95_ms} · p99{" "}
-        {record.latency_p99_ms} ms <span className="muted">({record.runs} runs)</span>
+    <>
+      <p className="telemetry__meta">
+        {phone.device?.model} · {phone.device?.soc} · Android {phone.device?.android} —{" "}
+        {phone.model?.name} {phone.model?.quantization}
       </p>
+      <div className="telemetry__table-wrap">
+        <table className="tiers">
+          <thead>
+            <tr>
+              <th>Build</th>
+              <th>Threads</th>
+              <th>Prompt</th>
+              <th>Prefill</th>
+              <th>First token</th>
+              <th>Decode</th>
+              <th>Full reply</th>
+            </tr>
+          </thead>
+          <tbody>
+            {runs.map((run) => (
+              <tr key={run.measured_at}>
+                <td>{buildLabel(run)}</td>
+                <td>{run.threads}</td>
+                <td>{run.prompt_tokens} tok</td>
+                <td>{rate(run.prefill_tok_per_s)}</td>
+                <td>{seconds(run.time_to_first_token_ms)}</td>
+                <td>{rate(run.decode_tok_per_s)}</td>
+                <td>{seconds(run.total_ms)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {phone.conclusions?.length > 0 && (
+        <ul className="telemetry__conclusions">
+          {phone.conclusions.map((line) => <li key={line}>{line}</li>)}
+        </ul>
+      )}
+      {phone.method && <p className="telemetry__meta">{phone.method}</p>}
+    </>
+  );
+}
+
+/** Qualcomm AI Hub profiles, present only when deployment/aihub_export has been run. */
+function ProfiledModels({ models }) {
+  return (
+    <div className="telemetry__table-wrap">
+      <table className="tiers">
+        <thead>
+          <tr><th>Model</th><th>Device</th><th>Runtime</th><th>Precision</th><th>p50</th></tr>
+        </thead>
+        <tbody>
+          {models.map((record) => {
+            const profile = record.npu ?? {};
+            return (
+              <tr key={record.model}>
+                <td>{record.model}</td>
+                <td>{profile.device ?? "—"}</td>
+                <td>{profile.runtime ?? "—"}</td>
+                <td>{profile.precision ?? "—"}</td>
+                <td>{profile.latency_p50_ms != null ? `${profile.latency_p50_ms} ms` : "—"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function ModelCard({ record }) {
-  const npu = record.npu ?? {};
-  const passed = record.meets_80pct_npu_gate;
-  return (
-    <article className="bench-card">
-      <header>
-        <h4>{record.model}</h4>
-        <span className={passed ? "gate pass" : "gate fail"}>
-          {npu.op_coverage_pct == null ? "not profiled" : `${npu.op_coverage_pct}% on NPU`}
-        </span>
-      </header>
-
-      {npu.error ? (
-        <p className="bench-error">compile failed — {npu.error}</p>
-      ) : (
-        <>
-          <dl>
-            <dt>Device</dt><dd>{npu.device ?? "—"}</dd>
-            <dt>Runtime</dt><dd>{npu.runtime ?? "—"} · {npu.precision ?? "—"}</dd>
-            <dt>Layers on NPU</dt>
-            <dd>{npu.layers_on_npu ?? "—"} / {npu.layers_total ?? "—"}</dd>
-            {/* Where the time goes, which layer count alone can hide. */}
-            <dt>Time on NPU</dt>
-            <dd>{npu.time_on_npu_pct != null ? `${npu.time_on_npu_pct}%` : "—"}</dd>
-            {npu.fallback_units?.length > 0 && (
-              <>
-                <dt>Falls back to</dt><dd>{npu.fallback_units.join(", ")}</dd>
-              </>
-            )}
-            <dt>Peak memory</dt>
-            <dd>{npu.peak_memory_bytes
-              ? `${(npu.peak_memory_bytes / 1e6).toFixed(1)} MB` : "—"}</dd>
-          </dl>
-          <Tail record={npu} />
-          {record.components && (
-            <details className="fallbacks">
-              <summary>{Object.keys(record.components).length} components</summary>
-              <ul>
-                {Object.entries(record.components).map(([name, c]) => (
-                  <li key={name}>
-                    <code>{name}</code>{" "}
-                    <span className="muted">
-                      {c.op_coverage_pct}% NPU ·{" "}
-                      {c.latency_p50_ms ?? c.latency_ms} ms
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-          {npu.top_fallback_layers?.length > 0 && (
-            <details className="fallbacks">
-              <summary>{npu.top_fallback_layers.length} layers off the NPU</summary>
-              <ul>
-                {npu.top_fallback_layers.map((l) => (
-                  <li key={l.name}>
-                    <code>{l.name}</code> <span className="muted">{l.type}</span>
-                    {" → "}{l.unit} <span className="muted">{l.us}µs</span>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-          <Compare npu={npu} cpu={record.cpu} speedup={record.speedup_vs_cpu} />
-          {!passed && npu.op_coverage_pct != null && (
-            <p className="bench-warn">Below the {NPU_GATE}% gate — needs a GPU fallback.</p>
-          )}
-        </>
-      )}
-    </article>
-  );
-}
-
 /**
- * Measured on-device numbers from the AI Hub device cloud. Renders an explicit
- * "not profiled yet" rather than zeros when the harness has not been run — an
- * unprofiled model must never read as a fast one.
+ * Measured numbers only. When nothing has been measured, it says so rather than showing
+ * zeros — an unmeasured model must never read as a fast one.
  */
 export default function Telemetry() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    benchmarks().then(setData).catch((e) => setError(e.message));
+    benchmarks().then(setData, (e) => setError(e.message));
   }, []);
 
   return (
     <section className="telemetry">
-      <h3>Silicon utilization</h3>
+      <h3>Where each workload runs</h3>
+      <div className="telemetry__table-wrap">
+        <table className="tiers">
+          <thead>
+            <tr><th>Tier</th><th>Hardware</th><th>Compute</th><th>Workload</th></tr>
+          </thead>
+          <tbody>
+            {TIERS.map((t) => (
+              <tr key={t.tier}>
+                <td>{t.tier}</td>
+                <td>{t.hardware}</td>
+                <td className="unit-cpu">{t.compute}</td>
+                <td>{t.workload}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-      <table className="tiers">
-        <thead>
-          <tr><th>Tier</th><th>Silicon</th><th>Compute unit</th><th>Workload</th></tr>
-        </thead>
-        <tbody>
-          {TIERS.map((t) => (
-            <tr key={t.tier}>
-              <td>{t.tier}</td><td>{t.silicon}</td>
-              <td className={t.unit.includes("no NPU") ? "unit-cpu" : "unit-npu"}>
-                {t.unit}
-              </td>
-              <td>{t.workload}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {error && <p className="bench-error">benchmarks unavailable — {error}</p>}
-
-      {data && !data.profiled && (
+      <h3>On-device model, measured on the phone</h3>
+      {error && <p className="bench-error">Measurements unavailable — {error}</p>}
+      {data && !data.phone && (
         <p className="bench-empty">
-          Not profiled yet. Run <code>python -m deployment.aihub_export.profile_models
-          --model &lt;slug&gt; --compare</code> to measure on real hardware.
+          No phone measurements yet. <code>docs/hardware/s24fe.md</code> explains how to record
+          them into <code>benchmarks/phone.json</code>.
         </p>
       )}
+      {data?.phone && <PhoneRuns phone={data.phone} />}
 
       {data?.models?.length > 0 && (
         <>
-          <div className="bench-grid">
-            {data.models.map((m) => <ModelCard key={m.model} record={m} />)}
-          </div>
-          <p className="bench-source">
-            Measured on physical devices in the Qualcomm AI Hub device cloud — not
-            compile-time estimates.
-          </p>
+          <h3>Profiled models</h3>
+          <ProfiledModels models={data.models} />
         </>
       )}
     </section>

@@ -65,6 +65,24 @@ if(EXISTS "${LLAMA_DIR}/include/llama.h")
         NDEBUG
     )
 
+    # ── CPU features ──────────────────────────────────────────────────────────
+    # ggml chooses its ARM kernels at compile time (__ARM_FEATURE_DOTPROD,
+    # __ARM_FEATURE_MATMUL_INT8), so without -march they are compiled out and the
+    # quantised maths falls back to plain NEON. Every core on the Exynos 2400e reports
+    # asimddp and i8mm (docs/hardware/s24fe.md). Applied to ggml_cpu only, where the
+    # kernels live: scanborn_jni stays baseline so its HWCAP check can run on any arm64
+    # phone and refuse to load a model where these instructions would crash with SIGILL.
+    # SVE stays off until a measurement shows it helps.
+    if(ANDROID_ABI STREQUAL "arm64-v8a")
+        target_compile_options(ggml_cpu PRIVATE -march=armv8.2-a+dotprod+i8mm)
+        # Weight repacking: at load time ggml rewrites Q4_K/Q5_K/Q6_K weights into the
+        # interleaved layout its int8 kernels read. ggml-cpu.cpp only registers the repack
+        # buffer under this define, which upstream's CMake sets and this hand-written file
+        # did not — so repacking was compiled in but never ran. Repacked weights live in
+        # their own buffer instead of the memory-mapped model file.
+        target_compile_definitions(ggml_cpu PRIVATE GGML_USE_CPU_REPACK)
+    endif()
+
     # ── llama core ────────────────────────────────────────────────────────────
     # Collect all per-model architecture sources
     file(GLOB LLAMA_MODEL_SOURCES "${LLAMA_DIR}/src/models/*.cpp")

@@ -1,215 +1,183 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
-const PROMPT_PRESETS = [
-  {
-    label: "Dock & Pallet Transfer",
-    prompt: "Pick package from docking pallet and place on sorting table",
-    lang: "en",
-    provider: "FunctionGemma · On-Device NPU",
-  },
-  {
-    label: "Cargo Perimeter Patrol",
-    prompt: "Inspect perimeter for fallen cargo and clear path",
-    lang: "en",
-    provider: "FunctionGemma · On-Device NPU",
-  },
-  {
-    label: "Charging Optical Align",
-    prompt: "Navigate to charging dock and perform optical self-calibration",
-    lang: "en",
-    provider: "FunctionGemma · On-Device NPU",
-  },
-  {
-    label: "Hindi · मेज से डिब्बा उठाओ",
-    prompt: "मेज से डिब्बा उठाओ और रैक पर रखो",
-    lang: "hi",
-    provider: "Sarvam AI · Indic Edge VLM",
-  },
-  {
-    label: "Hindi · कमरे का निरीक्षण",
-    prompt: "कमरे का निरीक्षण करो और बाधाओं से बचो",
-    lang: "hi",
-    provider: "Sarvam AI · Indic Edge VLM",
-  },
+import * as api from "./api.js";
+
+/**
+ * Plain language in, task graph out — the planner the console's Plan stage uses, called
+ * through POST /plan/preview so it works without a scanned room.
+ *
+ * Everything shown is the orchestrator's answer: the steps, the provider that produced them,
+ * and whether that ran on this machine or called a network API.
+ */
+const PRESETS = [
+  { label: "Go to the table", text: "Go to the table", lang: "en" },
+  { label: "Take the box to the shelf", text: "Take the box to the shelf", lang: "en" },
+  { label: "Inspect the door, then wait", text: "Inspect the door, then wait", lang: "en" },
+  { label: "Say hello, then go to the chair", text: "Say hello, then go to the chair", lang: "en" },
+  { label: "Hindi · मेज़ पर जाओ", text: "मेज़ पर जाओ", lang: "hi" },
 ];
 
-function parsePromptToGraph(text) {
-  const lower = text.toLowerCase();
-  const nodes = [];
+const DEVANAGARI = /[ऀ-ॿ]/;
 
-  // Always start with navigation/datum
-  nodes.push({
-    action: "NAVIGATE",
-    target: "Starting Datum (0.0, 0.0)",
-    constraint: "Hexagon NPU Localizer · 60Hz",
-  });
+function Result({ state }) {
+  if (state.status === "planning") return <p className="nlp-note">Planning…</p>;
 
-  if (lower.includes("pick") || lower.includes("उठाओ") || lower.includes("cargo") || lower.includes("package")) {
-    nodes.push({
-      action: "PERCEIVE_6DOF",
-      target: lower.includes("cargo") ? "Fallen Cargo BBox" : "Target Package",
-      constraint: "YOLO-World INT8 · IoU > 0.85",
-    });
-    nodes.push({
-      action: "GRASP_PICK",
-      target: "Manipulator Gripper",
-      constraint: "Max Torque < 14N · Slip Guard",
-    });
+  if (state.status === "error") {
+    // A provider refusal (503 configuration, 502 exhausted) comes from a reachable orchestrator
+    // with a coded detail; only a failed request or a bare 5xx means it is not answering.
+    const down = state.error.status === 0 ||
+      (state.error.status >= 500 && !state.error.detail?.code);
+    return (
+      <p className="nlp-note nlp-note--error">
+        {down
+          ? "The orchestrator isn't reachable. Start it with uvicorn orchestrator.service:app --port 8000, then try again."
+          : state.error.message}
+      </p>
+    );
   }
 
-  if (lower.includes("inspect") || lower.includes("निरीक्षण") || lower.includes("patrol")) {
-    nodes.push({
-      action: "SWEEP_LIDAR",
-      target: "360° Safety Envelope",
-      constraint: "LiDAR 20Hz · Range 12m",
-    });
-    nodes.push({
-      action: "SEGMENT_OBSTACLES",
-      target: "Unmapped Clutter",
-      constraint: "MobileSAM · Zero-Shot Mask",
-    });
+  if (state.status !== "done") return null;
+
+  if (state.nodes.length === 0) {
+    return (
+      <p className="nlp-note">
+        {state.lang === "hi" && state.provider === "local"
+          ? "No steps. The offline planner reads English only; Hindi needs a remote planner " +
+            "(SCANBORN_PLANNER=groq on the orchestrator) or the phone app's on-device model."
+          : "No steps. The planner answers only with navigate_to, pickup, place, inspect, wait " +
+            "and speak, and found none of them in that sentence."}
+      </p>
+    );
   }
 
-  if (lower.includes("place") || lower.includes("रखो") || lower.includes("table") || lower.includes("रैक")) {
-    nodes.push({
-      action: "ALIGN_SURFACE",
-      target: lower.includes("रैक") ? "Secondary Rack 02" : "Sorting Table Plane",
-      constraint: "Depth Normal Z ± 1.5°",
-    });
-    nodes.push({
-      action: "RELEASE_PLACE",
-      target: "Contact Damping",
-      constraint: "Force Feedback Verified",
-    });
-  }
-
-  if (lower.includes("dock") || lower.includes("charg") || lower.includes("calibrat")) {
-    nodes.push({
-      action: "OPTICAL_DOCK",
-      target: "Inductive Pad Alpha",
-      constraint: "AprilTag Fiducial ± 2mm",
-    });
-  }
-
-  // Final verification node
-  nodes.push({
-    action: "SIM_GATE_VERIFY",
-    target: "MuJoCo Kinematics Check",
-    constraint: "Confidence Score ≥ 0.88",
-  });
-
-  return nodes;
+  return (
+    <>
+      {state.planStatus === "clarification_needed" && (
+        // The planner asks rather than guesses: a missing, absent or shared target is a question.
+        <p className="nlp-note">
+          Needs clarification: {state.problems.join("; ")}. Nothing would be stored or driven.
+        </p>
+      )}
+      <div className="nlp-graph-flow">
+        {state.nodes.map((node, i) => (
+          <React.Fragment key={`${node.action}-${i}`}>
+            <div className="nlp-graph-node" style={{ animationDelay: `${i * 60}ms` }}>
+              <span className="nlp-graph-node__action">{node.action}</span>
+              <span className="nlp-graph-node__target">
+                {node.target || node.params?.text || "—"}
+              </span>
+            </div>
+            {i < state.nodes.length - 1 && <span className="nlp-arrow">→</span>}
+          </React.Fragment>
+        ))}
+      </div>
+    </>
+  );
 }
 
 export default function NLPPlayground() {
-  const [selectedPrompt, setSelectedPrompt] = useState(PROMPT_PRESETS[0].prompt);
-  const [inputVal, setInputVal] = useState(PROMPT_PRESETS[0].prompt);
-  const [provider, setProvider] = useState(PROMPT_PRESETS[0].provider);
-  const [isCompiling, setIsCompiling] = useState(false);
-  const [graphNodes, setGraphNodes] = useState([]);
-  const [activeNodeIndex, setActiveNodeIndex] = useState(0);
+  const [text, setText] = useState(PRESETS[0].text);
+  const [lang, setLang] = useState(PRESETS[0].lang);
+  const [state, setState] = useState({ status: "idle" });
+  // Only the newest request may write the result; a slow earlier answer must not overwrite it.
+  const latest = useRef(0);
+
+  const plan = async (nextText, nextLang) => {
+    if (!nextText.trim()) return;
+    const request = ++latest.current;
+    setState({ status: "planning" });
+    try {
+      const result = await api.planPreview(nextText, nextLang);
+      if (request !== latest.current) return;
+      setState({
+        status: "done",
+        planStatus: result.status ?? "planned",
+        problems: result.problems ?? [],
+        nodes: JSON.parse(result.graph_json).nodes ?? [],
+        provider: result.provider,
+        location: result.location ?? (result.on_device ? "orchestrator" : "remote"),
+        fallback: result.provenance?.fallback_reason ?? null,
+        lang: nextLang,
+      });
+    } catch (error) {
+      if (request === latest.current) setState({ status: "error", error });
+    }
+  };
 
   useEffect(() => {
-    setIsCompiling(true);
-    const timer = setTimeout(() => {
-      setGraphNodes(parsePromptToGraph(inputVal));
-      setIsCompiling(false);
-      setActiveNodeIndex(0);
-    }, 280);
+    plan(PRESETS[0].text, PRESETS[0].lang);
+  }, []);
 
-    return () => clearTimeout(timer);
-  }, [inputVal]);
+  const choose = (preset) => {
+    setText(preset.text);
+    setLang(preset.lang);
+    plan(preset.text, preset.lang);
+  };
 
-  const handleSelectPreset = (preset) => {
-    setSelectedPrompt(preset.prompt);
-    setInputVal(preset.prompt);
-    setProvider(preset.provider);
+  const edit = (value) => {
+    setText(value);
+    setLang(DEVANAGARI.test(value) ? "hi" : "en");
   };
 
   return (
     <div className="nlp-playground" data-reveal>
       <div className="nlp-header">
         <div>
-          <h3 className="nlp-title">07 · Natural Language Policy Compiler</h3>
+          <h3 className="nlp-title">Plan a task in plain language</h3>
           <p className="hint">
-            Prompt-to-DAG conversion on the edge — runs zero-shot task decomposition without cloud roundtrips.
+            The console's planner, called without a scanned room. It can only answer with six
+            actions: navigate_to, pickup, place, inspect, wait and speak.
           </p>
         </div>
-        <div className="nlp-provider-badge">
-          {provider}
-        </div>
-      </div>
-
-      <div className="nlp-prompt-chips">
-        {PROMPT_PRESETS.map((p) => (
-          <button
-            key={p.label}
-            type="button"
-            className={`nlp-chip ${selectedPrompt === p.prompt ? "is-active" : ""}`}
-            onClick={() => handleSelectPreset(p)}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="nlp-input-row">
-        <input
-          type="text"
-          className="nlp-input"
-          value={inputVal}
-          onChange={(e) => setInputVal(e.target.value)}
-          placeholder="Type an autonomous AMR instruction (English or Hindi)..."
-          aria-label="Natural language task prompt"
-        />
-        <button
-          type="button"
-          className="btn btn--solid"
-          onClick={() => {
-            setIsCompiling(true);
-            setTimeout(() => {
-              setGraphNodes(parsePromptToGraph(inputVal));
-              setIsCompiling(false);
-            }, 240);
-          }}
-        >
-          Compile DAG ↵
-        </button>
-      </div>
-
-      <div className="nlp-graph-canvas">
-        {isCompiling ? (
-          <div style={{ padding: "2rem", textAlign: "center", color: "var(--muted)", fontFamily: "var(--mono)", fontSize: "var(--ui-sm)" }}>
-            Tokenizing on NPU tensor cores
-            <span className="nlp-cursor" />
-          </div>
-        ) : (
-          <div className="nlp-graph-flow">
-            {graphNodes.map((node, i) => (
-              <React.Fragment key={node.action + i}>
-                <div
-                  className={`nlp-graph-node ${activeNodeIndex === i ? "active" : ""}`}
-                  onClick={() => setActiveNodeIndex(i)}
-                  style={{ animationDelay: `${i * 60}ms`, cursor: "pointer" }}
-                >
-                  <span className="nlp-graph-node__action">{node.action}</span>
-                  <span className="nlp-graph-node__target">{node.target}</span>
-                  <span className="nlp-graph-node__constraint">{node.constraint}</span>
-                </div>
-                {i < graphNodes.length - 1 && <span className="nlp-arrow">→</span>}
-              </React.Fragment>
-            ))}
+        {state.status === "done" && (
+          <div className="nlp-provider-badge"
+               title={state.fallback ? `Fell back: ${state.fallback}` : undefined}>
+            {state.provider} · {state.location === "remote" ? "remote API" : "on this machine"}
+            {state.fallback && " · after fallback"}
           </div>
         )}
       </div>
 
-      {graphNodes[activeNodeIndex] && (
-        <div style={{ marginTop: "1rem", display: "flex", gap: "1rem", flexWrap: "wrap", fontSize: "var(--ui-sm)", fontFamily: "var(--mono)", color: "var(--muted)" }}>
-          <span>NODE [{activeNodeIndex + 1}/{graphNodes.length}]: <strong style={{ color: "var(--graphite)" }}>{graphNodes[activeNodeIndex].action}</strong></span>
-          <span>TARGET: <strong style={{ color: "var(--near-ink)" }}>{graphNodes[activeNodeIndex].target}</strong></span>
-          <span>SAFETY CONSTRAINT: <strong style={{ color: "var(--mint-ink)" }}>{graphNodes[activeNodeIndex].constraint}</strong></span>
-        </div>
-      )}
+      <div className="nlp-prompt-chips">
+        {PRESETS.map((preset) => (
+          <button
+            key={preset.label}
+            type="button"
+            className={`nlp-chip ${text === preset.text ? "is-active" : ""}`}
+            onClick={() => choose(preset)}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+
+      <form
+        className="nlp-input-row"
+        onSubmit={(event) => {
+          event.preventDefault();
+          plan(text, lang);
+        }}
+      >
+        <input
+          type="text"
+          className="nlp-input"
+          value={text}
+          onChange={(event) => edit(event.target.value)}
+          placeholder="Type an instruction, e.g. take the box to the shelf"
+          aria-label="Task in plain language"
+        />
+        <button
+          type="submit"
+          className="btn btn--solid"
+          disabled={state.status === "planning" || !text.trim()}
+        >
+          Plan ↵
+        </button>
+      </form>
+
+      <div className="nlp-graph-canvas" aria-live="polite">
+        <Result state={state} />
+      </div>
     </div>
   );
 }

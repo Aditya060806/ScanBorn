@@ -154,15 +154,15 @@ export default function ReconCanvas() {
           <div className="hero-badges">
             <span className="hero-badge">
               <span className="hero-badge__dot hero-badge__dot--pulse" />
-              NPU Zero-Shot · 60Hz
+              Laptop CPU · no GPU needed
             </span>
             <span className="hero-badge">
               <span className="hero-badge__dot" />
-              Qualcomm AI Hub Verified
+              On-phone model · measured
             </span>
             <span className="hero-badge">
               <span className="hero-badge__dot" />
-              100% Offline Edge Twin
+              No internet required
             </span>
           </div>
 
@@ -173,8 +173,9 @@ export default function ReconCanvas() {
           </h1>
           <p className="lede">
             ScanBorn turns a walk-through scan into a simulation-ready twin, trains a policy
-            inside that twin, and ships a quantized artifact that runs on Snapdragon with the
-            network off.
+            inside that twin, and only lets it drive once it has passed a simulation test — with
+            the network off. Today it drives a simulated robot and a fake rover; the phone scan and the
+            ESP32 rover are built but not yet run on real hardware.
           </p>
           <p className="scrollcue">Scroll to run the pipeline</p>
         </div>

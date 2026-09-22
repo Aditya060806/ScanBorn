@@ -92,6 +92,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.webkit:webkit:1.12.1")
     implementation(libs.androidx.core.ktx)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -110,6 +111,9 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+    // Scan a space (Phase 5): ARCore depth capture and the upload to the orchestrator.
+    implementation(libs.arcore)
+    implementation(libs.okhttp)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -118,3 +122,36 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
+
+// Generated from the same source as the dashboard; no CDN or model weights required.
+val bundleSharedViewer by tasks.registering(Exec::class) {
+    workingDir(rootProject.projectDir.resolve("../dashboard"))
+    commandLine(if (System.getProperty("os.name").startsWith("Windows")) "npm.cmd" else "npm",
+        "run", "build:viewer")
+    inputs.dir(rootProject.projectDir.resolve("../dashboard/shared-viewer"))
+    inputs.file(rootProject.projectDir.resolve("../dashboard/viewer.html"))
+    inputs.file(rootProject.projectDir.resolve("../dashboard/viewer.config.mjs"))
+    outputs.dir(layout.buildDirectory.dir("generated/viewerAssets"))
+}
+android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/viewerAssets"))
+tasks.named("preBuild").configure { dependsOn(bundleSharedViewer) }
+
+val checkSourceCompleteness by tasks.registering {
+    doLast {
+        val root = rootProject.projectDir.parentFile
+        val source = fileTree("src") { include("**/*.kt", "**/*.java", "**/*.xml") }
+        val process = ProcessBuilder("git", "check-ignore", "--no-index", "--stdin")
+            .directory(root).redirectError(ProcessBuilder.Redirect.INHERIT).start()
+        process.outputStream.bufferedWriter().use { writer ->
+            source.forEach { writer.appendLine(it.relativeTo(root).invariantSeparatorsPath) }
+        }
+        val ignored = process.inputStream.bufferedReader().readText()
+        val code = process.waitFor()
+        check(code == 1 && ignored.isBlank()) { "Application sources are ignored or Git check failed: $ignored" }
+        listOf("ThemePreference.kt", "OrchestratorPreference.kt", "library/LibraryRepository.kt",
+            "library/LibraryDao.kt", "library/LibraryEntry.kt", "library/LibraryDatabase.kt").forEach {
+            check(file("src/main/java/com/scanborn/ai/data/$it").exists()) { "Missing required source: $it" }
+        }
+    }
+}
+tasks.named("preBuild").configure { dependsOn(checkSourceCompleteness) }

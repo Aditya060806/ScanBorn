@@ -7,6 +7,36 @@ on:
     branches: [main]
 
 jobs:
+  dashboard-and-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Verify application source completeness
+        run: python scripts/check_source_completeness.py
+      - name: Test and package both viewer entry points
+        working-directory: dashboard
+        run: |
+          npm ci
+          npm test
+          npm run build
+          npm run build:viewer
+      - name: Install declared Android build tools
+        run: sdkmanager "platforms;android-36" "ndk;28.2.13676358" "cmake;3.22.1"
+      - name: Android tests and compilation without model weights
+        working-directory: MOBILE-APP
+        run: bash gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+
   lint:
     runs-on: ubuntu-latest
     strategy:
@@ -56,6 +86,20 @@ jobs:
       - name: Run tests with coverage
         run: |
           pytest --cov-report=xml
+
+      - name: Get pinned headers for firmware calibration host checks
+        if: matrix.python-version == '3.11'
+        uses: actions/checkout@v4
+        with:
+          repository: bblanchon/ArduinoJson
+          ref: v7.4.3
+          path: build/ArduinoJson
+          persist-credentials: false
+      - name: Firmware math, freshness and production calibration fault checks
+        if: matrix.python-version == '3.11'
+        env:
+          SCANBORN_ARDUINOJSON: build/ArduinoJson/src
+        run: python -m nox -s firmware_host firmware_calibration_host firmware_safety_host
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3

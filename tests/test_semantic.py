@@ -125,6 +125,19 @@ def test_same_room_segments_the_same_way_regardless_of_point_order():
         assert labels_of(segment_points(shuffled)) == baseline
 
 
+def test_outliers_below_the_floor_neither_move_it_nor_become_objects():
+    """Regression: the floor was the minimum z, so one flying pixel below it moved the floor
+    down, and the real floor then clustered as a phantom object."""
+    rng = np.random.default_rng(7)
+    outliers = np.stack([rng.uniform(0, 4, 300), rng.uniform(0, 4, 300),
+                         rng.uniform(-1.0, -0.3, 300)], -1)
+    objects = segment_points(np.concatenate([scene(), outliers]))
+    assert labels_of(objects) == ["chair", "floor", "table", "wall"]
+    floor = next(o for o in objects if o["label"] == "floor")
+    assert floor["bbox3d"][2] > -0.05
+    assert all(o["bbox3d"][2] > -0.2 for o in objects)
+
+
 def test_empty_cloud_returns_nothing():
     assert segment_points(np.zeros((0, 3))) == []
 

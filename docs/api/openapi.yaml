@@ -1,17 +1,1690 @@
-openapi: 3.0.3
+# Generated from orchestrator/service.py by `python scripts/export_openapi.py`.
+# Do not edit by hand: tests/test_openapi.py checks it lists every route.
+openapi: 3.1.0
 info:
-  title: ScanBorn API
-  version: 0.1.0
+  title: ScanBorn Orchestrator
+  version: '2.0'
 paths:
-  /capture/{session_id}:
+  /meshes/{mesh_id}/visualization:
+    get:
+      summary: Mesh Visualization
+      operationId: mesh_visualization_meshes__mesh_id__visualization_get
+      parameters:
+      - name: mesh_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Mesh Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /twins/{twin_id}/visualization:
+    get:
+      summary: Twin Visualization
+      operationId: twin_visualization_twins__twin_id__visualization_get
+      parameters:
+      - name: twin_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Twin Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /meshes/{mesh_id}/geometry/{level}:
+    get:
+      summary: Geometry
+      operationId: geometry_meshes__mesh_id__geometry__level__get
+      parameters:
+      - name: mesh_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Mesh Id
+      - name: level
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Level
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /scans:
+    get:
+      summary: Scans
+      operationId: scans_scans_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /twins:
+    get:
+      summary: Twins
+      operationId: twins_twins_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /robots:
+    get:
+      summary: Robots
+      operationId: robots_robots_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
     post:
-      summary: Upload capture data
-  /reconstruct/{session_id}:
+      summary: Register Robot
+      description: 'Register a protocol rover and return what it reports about itself.
+
+
+        `fake_rover` starts a fake rover inside this orchestrator (robot/adapters/fake_rover.py): the
+
+        real protocol over localhost sockets with the rover model inside, so a drive can be shown
+
+        without hardware. Its status says `"fake": true`, and so does every result it produces.'
+      operationId: register_robot_robots_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RobotRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /missions:
+    get:
+      summary: Missions
+      operationId: missions_missions_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
     post:
-      summary: Start reconstruction
+      summary: Create Mission
+      description: 'Plan a mission on a twin and store it.
+
+
+        Not recorded as a job: the map plans on every click, and a job per click would bury the
+
+        live feed. Missions are immutable — a new plan is a new row — so a policy always points at
+
+        the exact route it was trained on. Refusals are 422 with a `code` and, where one exists,
+
+        the `nearest` point that would work.'
+      operationId: create_mission_missions_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MissionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /deployments:
+    get:
+      summary: Deployments
+      operationId: deployments_deployments_get
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /deploy/requests/{request_id}:
+    get:
+      summary: Deployment Request
+      description: Recover a lost deployment response without issuing another start command.
+      operationId: deployment_request_deploy_requests__request_id__get
+      parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Request Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /stages/{stage}/requests/{request_id}:
+    get:
+      summary: Stage Request
+      description: Read a durable non-motion stage result without submitting or restarting work.
+      operationId: stage_request_stages__stage__requests__request_id__get
+      parameters:
+      - name: stage
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Stage
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Request Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /twins/{twin_id}:
+    get:
+      summary: Twin Detail
+      operationId: twin_detail_twins__twin_id__get
+      parameters:
+      - name: twin_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Twin Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /meshes/{mesh_id}/surface/{format}:
+    get:
+      summary: Surface Asset
+      operationId: surface_asset_meshes__mesh_id__surface__format__get
+      parameters:
+      - name: mesh_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Mesh Id
+      - name: format
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Format
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /robots/{robot_id}/calibrations:
+    post:
+      summary: Start Calibration
+      description: 'Start once per optional request_id; a retry returns the durable session without motion.
+
+
+        Keep the same request_id after transport failure. An interrupted/unknown result is not
+
+        evidence of a completed experiment; inspect rover status before an explicit new experiment.'
+      operationId: start_calibration_robots__robot_id__calibrations_post
+      parameters:
+      - name: robot_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Robot Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      summary: Calibration History
+      operationId: calibration_history_robots__robot_id__calibrations_get
+      parameters:
+      - name: robot_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Robot Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+          title: Limit
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /robots/{robot_id}/calibration-requests/{request_id}:
+    get:
+      summary: Calibration Request
+      description: Recover the recorded outcome without sending any command to the rover.
+      operationId: calibration_request_robots__robot_id__calibration_requests__request_id__get
+      parameters:
+      - name: robot_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Robot Id
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Request Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /robots/{robot_id}/calibrations/{identifier}:
+    get:
+      summary: Calibration Status
+      operationId: calibration_status_robots__robot_id__calibrations__identifier__get
+      parameters:
+      - name: robot_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Robot Id
+      - name: identifier
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Identifier
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /robots/{robot_id}/calibrations/{identifier}/stop:
+    post:
+      summary: Stop Calibration
+      operationId: stop_calibration_robots__robot_id__calibrations__identifier__stop_post
+      parameters:
+      - name: robot_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Robot Id
+      - name: identifier
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Identifier
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /robots/{robot_id}/calibrations/{identifier}/measurement:
+    post:
+      summary: Measure
+      operationId: measure_robots__robot_id__calibrations__identifier__measurement_post
+      parameters:
+      - name: robot_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Robot Id
+      - name: identifier
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /robots/{robot_id}/calibrations/{identifier}/apply:
+    post:
+      summary: Apply
+      operationId: apply_robots__robot_id__calibrations__identifier__apply_post
+      parameters:
+      - name: robot_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Robot Id
+      - name: identifier
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Identifier
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /robots/{robot_id}/calibrations/{identifier}/reconcile:
+    post:
+      summary: Reconcile
+      description: Verify interrupted or legacy apply from live read-back; never command motion/config.
+      operationId: reconcile_robots__robot_id__calibrations__identifier__reconcile_post
+      parameters:
+      - name: robot_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Robot Id
+      - name: identifier
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Identifier
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /health:
+    get:
+      summary: Health
+      operationId: health_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /providers:
+    get:
+      summary: Provider Settings
+      description: 'Each workload''s provider (planner, profiler, export), where it runs, and whether
+        it is
+
+        ready. Local unless a provider is named; credential values are never returned.'
+      operationId: provider_settings_providers_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /providers/settings:
+    post:
+      summary: Save Provider Settings
+      description: Persist explicit provider chains and consent; secrets remain server-side.
+      operationId: save_provider_settings_providers_settings_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /capture:
+    post:
+      summary: Capture
+      description: 'Upload one frame chunk. Resumable: re-POSTing an index overwrites it.
+
+
+        `meta` (a JSON object) is merged into the scan''s meta.json. The phone sends its capture settings
+
+        and `home_pose` with the first chunk; a malformed `home_pose` is refused before anything is
+
+        stored.'
+      operationId: capture_capture_post
+      parameters:
+      - name: scan_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Scan Id
+      - name: index
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+          title: Index
+      - name: meta
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Meta
+      - name: device
+        in: query
+        required: false
+        schema:
+          type: string
+          default: unknown
+          title: Device
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_capture_capture_post'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /capture/{scan_id}/import:
+    post:
+      summary: Capture Import
+      description: 'Open a scan from a finished export (Scaniverse .ply/.obj) instead of frame chunks.
+
+
+        Two callers, one route: the dashboard posts the file itself, while a server-side
+
+        batch run can name a file inside `exports/` in the data directory.
+
+
+        An export does not say its units or which axis is up: `units` (m, cm, mm, ft, in) and
+
+        `up_axis` (z, y) declare them, and one left out is recorded as assumed (m, z). The points
+
+        are moved into the map frame; the export itself is kept unchanged with its transform. An
+
+        import has no home-marker frame, so its registration is unknown: it can be inspected and
+
+        simulated, and a physical rover refuses it.'
+      operationId: capture_import_capture__scan_id__import_post
+      parameters:
+      - name: scan_id
+        in: path
+        required: true
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Scan Id
+      - name: export_path
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Export Path
+      - name: device
+        in: query
+        required: false
+        schema:
+          type: string
+          default: scaniverse
+          title: Device
+      - name: units
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Units
+      - name: up_axis
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Up Axis
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_capture_import_capture__scan_id__import_post'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /capture/import:
+    post:
+      summary: Capture Import
+      description: 'Open a scan from a finished export (Scaniverse .ply/.obj) instead of frame chunks.
+
+
+        Two callers, one route: the dashboard posts the file itself, while a server-side
+
+        batch run can name a file inside `exports/` in the data directory.
+
+
+        An export does not say its units or which axis is up: `units` (m, cm, mm, ft, in) and
+
+        `up_axis` (z, y) declare them, and one left out is recorded as assumed (m, z). The points
+
+        are moved into the map frame; the export itself is kept unchanged with its transform. An
+
+        import has no home-marker frame, so its registration is unknown: it can be inspected and
+
+        simulated, and a physical rover refuses it.'
+      operationId: capture_import_capture_import_post
+      parameters:
+      - name: scan_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Scan Id
+      - name: export_path
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Export Path
+      - name: device
+        in: query
+        required: false
+        schema:
+          type: string
+          default: scaniverse
+          title: Device
+      - name: units
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Units
+      - name: up_axis
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Up Axis
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_capture_import_capture_import_post'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /capture/{scan_id}/complete:
+    post:
+      summary: Capture Complete
+      description: 'Close a scan. An optional `{"meta": {...}}` body is merged into its meta.json, so
+        the app can
+
+        add its final counts without resending, or losing, the home pose.'
+      operationId: capture_complete_capture__scan_id__complete_post
+      parameters:
+      - name: scan_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Scan Id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - type: object
+                additionalProperties: true
+              - type: 'null'
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /capture/{scan_id}:
+    get:
+      summary: Capture Status
+      description: Upload state, frame count and whether the scan shares the rover's physical frame.
+      operationId: capture_status_capture__scan_id__get
+      parameters:
+      - name: scan_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Scan Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /reconstruct:
+    post:
+      summary: Reconstruct Scan
+      operationId: reconstruct_scan_reconstruct_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /segment:
+    post:
+      summary: Segment
+      operationId: segment_segment_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /generate-twin:
+    post:
+      summary: Generate Twin Endpoint
+      operationId: generate_twin_endpoint_generate_twin_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /plan/preview:
+    post:
+      summary: Plan Preview
+      description: 'Plan an instruction without a scanned room, for the landing page playground.
+
+
+        Same provider chain and contract as /plan, but nothing is stored and no job is recorded:
+
+        there is no twin for it to belong to. `labels` optionally stands in for a scene''s objects
+
+        (one entry per object). A plan that needs clarification or recognises no action is still a
+
+        200 here, with `status` and `problems` saying why; only a failed or cancelled chain is not.'
+      operationId: plan_preview_plan_preview_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /plan:
+    post:
+      summary: Plan
+      description: 'Turn an instruction into a task graph for this twin, through the planner chain.
+
+
+        Only a plan whose every step is supported and whose every target names exactly one object in
+
+        this scan is stored. A plan that needs clarification (a missing, absent or shared target)
+
+        or recognises no action is a 422 that says why; nothing is stored and nothing is guessed.'
+      operationId: plan_plan_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /providers/requests/{request_id}/cancel:
+    post:
+      summary: Cancel Provider Request
+      description: 'Stop a running planner or profiler chain between attempts. A request already sent
+        to a
+
+        remote provider finishes or times out; its reply is then discarded.'
+      operationId: cancel_provider_request_providers_requests__request_id__cancel_post
+      parameters:
+      - name: request_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Request Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /twins/{twin_id}/navmesh:
+    get:
+      summary: Twin Navmesh
+      description: 'The twin''s occupancy grid for the mission map.
+
+
+        `cells_b64` holds FREE 0 / BLOCKED 1 / UNKNOWN 2 per cell; `band_b64` marks free cells the
+
+        robot still does not fit in (closer than its radius to something). Both are uint8,
+
+        base64, row-major, with row 0 at the minimum y.'
+      operationId: twin_navmesh_twins__twin_id__navmesh_get
+      parameters:
+      - name: twin_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Twin Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /missions/{mission_id}:
+    get:
+      summary: Get Mission
+      operationId: get_mission_missions__mission_id__get
+      parameters:
+      - name: mission_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Mission Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /robot-specs/{name}:
+    get:
+      summary: Robot Spec
+      description: robot/specs/<name>.yaml. `source` says whether its numbers are measured or placeholders.
+      operationId: robot_spec_robot_specs__name__get
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /train:
     post:
-      summary: Train policy
-  /deploy/{model_id}/{target}:
+      summary: Train
+      description: 'Behaviour-clone the controller in the rover model and gate the result.
+
+
+        With a mission, the policy must reach the goal in at least MISSION_GATE of the noisy runs of
+
+        that mission; without one, SIM_GATE of random starts. A 409 carries the numbers, including
+
+        how the failed runs ended. Noise comes from the robot spec, which labels it as assumed until
+
+        calibration measures it. Optional robot_id selects its accepted calibration revision;
+
+        robot_spec is the stable specification ID, not its display name.'
+      operationId: train_train_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /optimize:
     post:
-      summary: Deploy model to target
+      summary: Optimize
+      operationId: optimize_optimize_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /benchmarks:
+    get:
+      summary: Benchmarks
+      description: 'Measured numbers for the dashboard''s Telemetry panel.
+
+
+        `models` is written by `python -m deployment.aihub_export.profile_models` and is empty
+
+        until that has been run: an empty payload means "not profiled yet", never zero. `phone`
+
+        is benchmarks/phone.json, the on-device model measured on the project''s phone, or None.'
+      operationId: benchmarks_benchmarks_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /robots/{robot_id}/status:
+    get:
+      summary: Robot Status
+      operationId: robot_status_robots__robot_id__status_get
+      parameters:
+      - name: robot_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Robot Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /robots/{robot_id}/estop:
+    post:
+      summary: Robot Estop
+      description: E-STOP a rover. It latches on the rover until reset; a live drive on it ends as `estop`.
+      operationId: robot_estop_robots__robot_id__estop_post
+      parameters:
+      - name: robot_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Robot Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /robots/{robot_id}/reset:
+    post:
+      summary: Robot Reset
+      description: Clear a latched E-STOP or error. The rover refuses while it is driving.
+      operationId: robot_reset_robots__robot_id__reset_post
+      parameters:
+      - name: robot_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Robot Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /robots/{robot_id}/calibrate:
+    post:
+      summary: Robot Calibrate
+      description: Run a calibration move (`straight` or `spin`). Turning it into spec values is Phase
+        6.
+      operationId: robot_calibrate_robots__robot_id__calibrate_post
+      parameters:
+      - name: robot_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Robot Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /deploy:
+    post:
+      summary: Deploy
+      operationId: deploy_deploy_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /deployments/{deployment_id}:
+    get:
+      summary: Get Deployment
+      description: A deployment's state, its trace so far and, once it has ended, its recorded result.
+      operationId: get_deployment_deployments__deployment_id__get
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /deployments/{deployment_id}/stop:
+    post:
+      summary: Stop Deployment
+      description: 'Operator stop: the rover halts and keeps its mission; the drive is recorded as stopped.'
+      operationId: stop_deployment_deployments__deployment_id__stop_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /sync:
+    post:
+      summary: Sync
+      operationId: sync_sync_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /status/{job_id}:
+    get:
+      summary: Status
+      operationId: status_status__job_id__get
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    Body_capture_capture_post:
+      properties:
+        file:
+          anyOf:
+          - type: string
+            format: binary
+          - type: 'null'
+          title: File
+      type: object
+      title: Body_capture_capture_post
+    Body_capture_import_capture__scan_id__import_post:
+      properties:
+        file:
+          anyOf:
+          - type: string
+            format: binary
+          - type: 'null'
+          title: File
+      type: object
+      title: Body_capture_import_capture__scan_id__import_post
+    Body_capture_import_capture_import_post:
+      properties:
+        file:
+          anyOf:
+          - type: string
+            format: binary
+          - type: 'null'
+          title: File
+      type: object
+      title: Body_capture_import_capture_import_post
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    MissionRequest:
+      properties:
+        twin_id:
+          type: string
+          title: Twin Id
+        goal:
+          anyOf:
+          - items:
+              type: number
+            type: array
+            maxItems: 2
+            minItems: 2
+          - type: 'null'
+          title: Goal
+          description: '[x, y] in metres, map frame. Give this or task_graph_id.'
+        task_graph_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Graph Id
+          description: 'Take the route from a plan: its last navigate_to target is the goal and earlier
+            ones are via points, in order. Every step must be navigate_to, and every target must name
+            one object in this scan.'
+        start:
+          anyOf:
+          - items:
+              type: number
+            type: array
+            maxItems: 3
+            minItems: 2
+          - type: 'null'
+          title: Start
+          description: '[x, y] or [x, y, heading in radians]. Defaults to the scan''s home pose; without
+            one it is required.'
+        via:
+          items:
+            items:
+              type: number
+            type: array
+            maxItems: 2
+            minItems: 2
+          type: array
+          maxItems: 16
+          title: Via
+          description: Points to pass through, in order.
+      type: object
+      required:
+      - twin_id
+      title: MissionRequest
+      description: Where the robot starts, where it should end up, and what it must pass on the way.
+    RobotRequest:
+      properties:
+        kind:
+          type: string
+          enum:
+          - rover
+          - fake_rover
+          title: Kind
+        address:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Address
+          description: http://host[:port] of an ESP32 rover. Not used for fake_rover.
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+        time_scale:
+          type: number
+          maximum: 50.0
+          minimum: 1.0
+          title: Time Scale
+          description: 'fake_rover only: run its model this many times faster than real time.'
+          default: 1.0
+      type: object
+      required:
+      - kind
+      title: RobotRequest
+      description: 'A protocol rover to register: an ESP32 at `address`, or a fake rover run in-process.'
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
