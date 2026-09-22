@@ -12,11 +12,17 @@
 ![Status](https://img.shields.io/badge/Status-Engineering%20prototype-50645f)
 ![Compute](https://img.shields.io/badge/Pipeline-CPU%20%2B%20optional%20APIs-24766d)
 
-[Quick start](#quick-start) · [Architecture](#architecture) · [3D workspace](#the-shared-3d-workspace) · [Benchmarks](#benchmarks-and-performance) · [Verification](#verification) · [Roadmap](#limitations-and-future-scope)
+[Visual tour](#visual-tour) · [Quick start](#quick-start) · [Architecture](#architecture) · [3D workspace](#the-shared-3d-workspace) · [Benchmarks](#benchmarks-and-performance) · [Verification](#verification) · [Roadmap](#limitations-and-future-scope)
 
 </div>
 
 ---
+
+<p align="center">
+  <img src="assets/readme/website-overview.png" width="100%" alt="Current ScanBorn website: orange procedural room animation beside the project introduction" />
+</p>
+
+<p align="center"><em>The current website, captured 22 September 2026. Landing geometry is illustrative; the operator workspace loads reconstruction data.</em></p>
 
 ## Overview
 
@@ -38,6 +44,51 @@ Operators use a **React dashboard**, **native Android screens** or the **Python 
 | Optional APIs | Provider selection, consent, ordered fallback, limits and provenance | Contract/fault tests; live accuracy not scored |
 | Firmware | ESP32 local control, telemetry, safety, asynchronous calibration | Host tests, compilation and QEMU; board trials pending |
 | Mobile AI | llama.cpp chat/planning, voice, OCR, PDF and library features | S24 FE inference timings; not a robotics benchmark |
+
+## Visual tour
+
+### 01 / Inspect the reconstructed scene
+
+![Current dashboard showing the recorded reconstructed point cloud, inferred objects and route](assets/readme/workspace-3d.png)
+
+**One workspace for geometry and mission context.** The recorded fixture contains 16,384 reconstructed points from synthetic depth input. Camera controls, layer toggles, point size, scale and registration provenance remain visible. This is the current viewer, not the historical box-only screenshot.
+
+### 02 / From a room-scale map to a rover-scale view
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/readme/reference-rover.png" alt="Actual procedural reference rover rendered by the shared Three.js viewer" width="100%" /></td>
+    <td width="50%"><img src="assets/readme/mission-workspace.png" alt="Current mission map with clearance bands, planned route and recorded simulation outcomes" width="100%" /></td>
+  </tr>
+  <tr>
+    <td valign="top"><strong>Inspect rover</strong><br/>The real viewer's procedural model: chassis, wheels, hubs, electronics and forward sensor. Cosmetic details are illustrative; dimensions follow the selected specification.</td>
+    <td valign="top"><strong>Inspect the mission</strong><br/>Free, blocked, unknown and clearance regions stay distinct. This recorded synthetic mission reports 29/30 simulated arrivals; it is not a physical-drive result.</td>
+  </tr>
+</table>
+
+### 03 / Keep the workflow accessible on narrow screens
+
+<table>
+  <tr>
+    <td width="34%"><img src="assets/readme/responsive-console.png" alt="Responsive ScanBorn website at 430 CSS pixels, with provider controls, fixture provenance and pipeline summary" width="100%" /></td>
+    <td valign="top">
+      <strong>Desktop workspace, responsive access</strong><br/><br/>
+      Provider controls, scene provenance and pipeline status adapt to a narrow viewport. The screenshot shows the website at 430 CSS pixels, not the native Android app.<br/><br/>
+      <strong>Native Android is a separate client</strong><br/><br/>
+      Compose screens own capture, mission actions, networking and Stop/E-STOP. The same viewer is bundled inside Android, so scene coordinates and rover geometry are shared.<br/><br/>
+      <a href="MOBILE-APP/README.md">Explore the Android project →</a>
+    </td>
+  </tr>
+</table>
+
+<details>
+<summary><strong>Screenshot provenance and reproduction</strong></summary>
+
+All images in this tour were captured from the current local Vite website on 22 September 2026 in a temporary Chrome profile. The console uses **Load offline fixture**, recorded from in-process orchestrator responses on synthetic geometry on 20 September. Its **Orchestrator unreachable** status is expected in this offline demonstration; no live service or physical robot is represented.
+
+To explore the same views: run `npm run dev` in `dashboard/`, open `/dashboard`, select **Load offline fixture**, then use **Fit room**, **Inspect rover** and **Mission map**. The images are view captures, not new performance benchmarks or physical acceptance evidence. Sources and capture details are in [the visual asset notes](assets/readme/README.md).
+
+</details>
 
 ## Why ScanBorn
 
@@ -213,6 +264,22 @@ Android bundles assets with `WebViewAssetLoader`, restricts message origins/navi
 Retained screenshots show an earlier console and fake rover. The 3D image predates the current point-cloud/shared-viewer presentation; it is not a phone scan or current visual acceptance capture.
 
 </details>
+
+### Reference rover / software model and hardware target
+
+![Reference rover close-up from the current shared viewer](assets/readme/reference-rover.png)
+
+The rover above is rendered by [`buildRover`](dashboard/shared-viewer/rover.js), the same module used by dashboard and Android. It is a procedural engineering illustration, not a photograph of an assembled robot or a fabrication-ready CAD model.
+
+| Visible assembly | Intended role | Source of truth |
+|---|---|---|
+| Chassis plates and supports | Carry the electronics and drivetrain | Procedural geometry; cosmetic dimensions illustrative |
+| Two driven wheels and hubs | Differential-drive motion | Wheel radius and wheelbase from the robot spec |
+| Motors and caster | Drive and passive support | Reference hardware illustration |
+| Controller board and battery | Embedded control and power | Illustrative arrangement, not a wiring diagram |
+| Forward sensor | Reference front-ranging hardware | Planned VL53L0X; firmware readiness/safety logic is separate |
+
+The checked-in [reference specification](robot/specs/rover.yaml) currently uses a **65 mm wheel diameter**, **170 mm wheelbase**, **150 mm footprint radius** and **120 mm height**. These are placeholder configuration values, not tape-measured hardware dimensions. Inspecting the rover changes the camera distance; it does not enlarge the rover within the room.
 
 ## Reliability and recovery
 
