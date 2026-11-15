@@ -191,7 +191,7 @@ Validation checks depth/intrinsics/pose structure, dimensions, finite values, in
 
 Depth observations fuse into a canonical point cloud. Multi-view filtering rejects insufficient support where applicable; single-frame fixtures explicitly report reduced support. Original geometry stays separate from deterministic **100,000- and 500,000-point** previews.
 
-A versioned manifest records asset references, bounds, floor, coordinates, capture/registration, semantics and spec provenance. The workspace can show geometry immediately after reconstruction, before segmentation/twin generation.
+A versioned manifest records asset references, bounds, floor, coordinates, capture/registration, semantics and spec provenance.
 
 ### 3. Build the twin
 
